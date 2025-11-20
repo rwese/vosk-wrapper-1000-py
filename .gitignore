@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+.env
+
+# Vosk Models
+models/
+model/
+*.zip
+
+# Logs and Output
+*.log
+stop_output.txt
+
+# OS specific
+.DS_Store
