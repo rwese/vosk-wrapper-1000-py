@@ -64,6 +64,7 @@ def get_device_id(device_arg):
 
 def main():
     global running, listening, transcript_buffer
+    aborting = False
 
     parser = argparse.ArgumentParser(description="Vosk Speech Recognition Service")
     parser.add_argument("--model", type=str, default="model", help="Path to Vosk model directory")
@@ -127,6 +128,10 @@ def main():
                     elif action == 101:
                         running = False
                         listening = False
+                    elif action == 102:
+                        running = False
+                        listening = False
+                        aborting = True
 
                 except Exception as e:
                     print(f"Error starting stream: {e}", file=sys.stderr)
@@ -165,12 +170,18 @@ def main():
                             transcript_buffer.append(text)
                             
                             # Execute LINE hooks
-                            action = hook_manager.run_hooks("line", payload=text)
+                            # Payload is full transcript (stdin), Arg is current line
+                            full_context = "\n".join(transcript_buffer)
+                            action = hook_manager.run_hooks("line", payload=full_context, args=[text])
                             if action == 100:
                                 listening = False
                             elif action == 101:
                                 running = False
                                 listening = False
+                            elif action == 102:
+                                running = False
+                                listening = False
+                                aborting = True
                     else:
                         pass
                 except queue.Empty:
@@ -193,7 +204,7 @@ def main():
             print("DEBUG: Stream stopped.", file=sys.stderr)
             
         # Ensure stop hooks are run if we exit while listening or have data
-        if (listening or transcript_buffer) and running == False: 
+        if (listening or transcript_buffer) and running == False and not aborting: 
              # We are exiting.
              full_transcript = "\n".join(transcript_buffer)
              print("Running final stop hooks...", file=sys.stderr)

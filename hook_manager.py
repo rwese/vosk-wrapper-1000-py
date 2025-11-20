@@ -25,19 +25,21 @@ class HookManager:
         
         return sorted(hooks)
 
-    def run_hooks(self, event_name, payload=None):
+    def run_hooks(self, event_name, payload=None, args=None):
         """
         Runs all hooks for a specific event.
         
         Args:
             event_name (str): The name of the event (start, line, stop).
             payload (str): Optional data to pass to the hook's stdin.
+            args (list): Optional list of arguments to pass to the hook script.
             
         Returns:
             int: A control code. 
                  0 = Continue
                  100 = Stop Listening
                  101 = Terminate Application
+                 102 = Abort (Terminate immediately, skip cleanup)
         """
         hooks = self._get_hooks(event_name)
         if not hooks:
@@ -50,8 +52,12 @@ class HookManager:
         for hook in hooks:
             try:
                 print(f"  Executing hook: {hook}", file=sys.stderr)
+                cmd = [hook]
+                if args:
+                    cmd.extend(args)
+                    
                 process = subprocess.Popen(
-                    [hook],
+                    cmd,
                     stdin=subprocess.PIPE if payload else None,
                     stdout=sys.stdout, # Forward stdout to main stdout
                     stderr=sys.stderr, # Forward stderr to main stderr
@@ -66,6 +72,9 @@ class HookManager:
                 elif process.returncode == 101:
                     print(f"  Hook '{hook}' requested TERMINATE (101).", file=sys.stderr)
                     return 101 # Immediate exit priority
+                elif process.returncode == 102:
+                    print(f"  Hook '{hook}' requested ABORT (102).", file=sys.stderr)
+                    return 102 # Immediate abort priority
                 elif process.returncode != 0:
                     print(f"  Hook '{hook}' exited with code {process.returncode}.", file=sys.stderr)
                     
