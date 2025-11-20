@@ -4,7 +4,9 @@ import sys
 # This is an example Python LINE hook.
 # It is triggered for every line of text transcribed by the model.
 
-# Input: The transcribed text line is passed via Standard Input (stdin).
+# Input: 
+#   Argument 1: The transcribed text line.
+#   Stdin: The full transcript context.
 # Output: Standard Output (stdout) and Standard Error (stderr) are logged.
 
 # Return Codes:
@@ -13,9 +15,9 @@ import sys
 # 101 - Request to terminate the application immediately.
 
 def main():
-    # Read the transcribed text from stdin
+    # Read the transcribed text from Argument 1
     try:
-        text = sys.stdin.read().strip()
+        text = sys.argv[1] if len(sys.argv) > 1 else ""
     except Exception:
         text = ""
 
