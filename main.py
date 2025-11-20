@@ -3,13 +3,14 @@ import json
 import os
 import queue
 import signal
-import subprocess
 import sys
 import threading
 import time
 
 import sounddevice as sd
 import vosk
+
+from hook_manager import HookManager
 
 # Global state
 running = True
@@ -36,25 +37,6 @@ def audio_callback(indata, frames, time, status):
         print(status, file=sys.stderr)
     if listening:
         audio_queue.put(bytes(indata))
-
-def run_stop_action(stop_action_script, transcript):
-    """Runs the stop action script and pipes the transcript to it."""
-    if not stop_action_script:
-        return
-
-    print(f"Running stop action: {stop_action_script}", file=sys.stderr)
-    try:
-        process = subprocess.Popen(
-            [stop_action_script],
-            stdin=subprocess.PIPE,
-            stdout=sys.stderr, # Forward script output to stderr to avoid messing up our stdout stream
-            stderr=sys.stderr,
-            text=True
-        )
-        process.communicate(input=transcript)
-        print(f"Stop action finished with return code {process.returncode}", file=sys.stderr)
-    except Exception as e:
-        print(f"Error running stop action: {e}", file=sys.stderr)
 
 def get_device_id(device_arg):
     """Resolves device argument (int or str) to a device ID."""
@@ -87,8 +69,11 @@ def main():
     parser.add_argument("--model", type=str, default="model", help="Path to Vosk model directory")
     parser.add_argument("--device", type=str, default=None, help="Input device ID or Name substring")
     parser.add_argument("--samplerate", type=int, default=16000, help="Sample rate")
-    parser.add_argument("--stop-action", type=str, default=None, help="Path to script to run on stop")
+    parser.add_argument("--hooks-dir", type=str, default="hooks", help="Path to hooks directory")
     parser.add_argument("--list-devices", action="store_true", help="List available audio input devices")
+    # stop-action is deprecated/removed in favor of hooks, but we can keep arg for compatibility or remove it.
+    # User didn't explicitly say to remove it, but "replace run_stop_action" implies it. 
+    # Let's remove it to be clean, or ignore it. Let's remove it.
     args = parser.parse_args()
 
     if args.list_devices:
@@ -98,6 +83,9 @@ def main():
     if not os.path.exists(args.model):
         print(f"Model not found at '{args.model}'. Please run download_model.py or specify correct path.", file=sys.stderr)
         sys.exit(1)
+
+    # Initialize HookManager
+    hook_manager = HookManager(args.hooks_dir)
 
     # Resolve device
     device_id = get_device_id(args.device)
@@ -131,6 +119,15 @@ def main():
                                             channels=1, callback=audio_callback)
                     stream.start()
                     print("Microphone stream started.", file=sys.stderr)
+                    
+                    # Execute START hooks
+                    action = hook_manager.run_hooks("start")
+                    if action == 100:
+                        listening = False
+                    elif action == 101:
+                        running = False
+                        listening = False
+
                 except Exception as e:
                     print(f"Error starting stream: {e}", file=sys.stderr)
                     listening = False # Abort listening if stream fails
@@ -145,10 +142,16 @@ def main():
                 
                 # Process accumulated transcript
                 full_transcript = "\n".join(transcript_buffer)
-                if full_transcript:
-                    run_stop_action(args.stop_action, full_transcript)
+                
+                # Execute STOP hooks
+                # We pass the full transcript as payload
+                action = hook_manager.run_hooks("stop", payload=full_transcript)
+                
                 transcript_buffer = [] # Clear buffer
                 rec.Reset() # Reset recognizer for next session
+                
+                if action == 101:
+                    running = False
 
             if listening and stream is not None:
                 try:
@@ -160,6 +163,14 @@ def main():
                             print(text) # Stream to stdout
                             sys.stdout.flush()
                             transcript_buffer.append(text)
+                            
+                            # Execute LINE hooks
+                            action = hook_manager.run_hooks("line", payload=text)
+                            if action == 100:
+                                listening = False
+                            elif action == 101:
+                                running = False
+                                listening = False
                     else:
                         pass
                 except queue.Empty:
@@ -174,9 +185,22 @@ def main():
     except Exception as e:
         print(f"An error occurred: {e}", file=sys.stderr)
     finally:
+        print("DEBUG: Entering finally block", file=sys.stderr)
         if stream is not None:
+            print("DEBUG: Stopping stream...", file=sys.stderr)
             stream.stop()
             stream.close()
+            print("DEBUG: Stream stopped.", file=sys.stderr)
+            
+        # Ensure stop hooks are run if we exit while listening or have data
+        if (listening or transcript_buffer) and running == False: 
+             # We are exiting.
+             full_transcript = "\n".join(transcript_buffer)
+             print("Running final stop hooks...", file=sys.stderr)
+             hook_manager.run_hooks("stop", payload=full_transcript)
+             print("DEBUG: Final stop hooks finished.", file=sys.stderr)
+    
+    print("Exiting...", file=sys.stderr)
 
     print("Exiting...", file=sys.stderr)
 

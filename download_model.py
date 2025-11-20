@@ -4,46 +4,50 @@ import sys
 import requests
 import zipfile
 from tqdm import tqdm
+import json
 
-# Define available models
-MODELS = {
-    "small-en": "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip",
-    "en": "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip",
-    "en-large": "https://alphacephei.com/vosk/models/vosk-model-en-us-0.42-gigaspeech.zip",
-    "small-cn": "https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip",
-    "cn": "https://alphacephei.com/vosk/models/vosk-model-cn-0.22.zip",
-    "small-ru": "https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip",
-    "ru": "https://alphacephei.com/vosk/models/vosk-model-ru-0.42.zip",
-    "small-fr": "https://alphacephei.com/vosk/models/vosk-model-small-fr-0.22.zip",
-    "fr": "https://alphacephei.com/vosk/models/vosk-model-fr-0.22.zip",
-    "small-de": "https://alphacephei.com/vosk/models/vosk-model-small-de-0.15.zip",
-    "de": "https://alphacephei.com/vosk/models/vosk-model-de-0.21.zip",
-    "small-es": "https://alphacephei.com/vosk/models/vosk-model-small-es-0.42.zip",
-    "es": "https://alphacephei.com/vosk/models/vosk-model-es-0.42.zip",
-    "small-pt": "https://alphacephei.com/vosk/models/vosk-model-small-pt-0.3.zip",
-    "small-tr": "https://alphacephei.com/vosk/models/vosk-model-small-tr-0.3.zip",
-    "small-vn": "https://alphacephei.com/vosk/models/vosk-model-small-vn-0.4.zip",
-    "small-it": "https://alphacephei.com/vosk/models/vosk-model-small-it-0.22.zip",
-    "small-nl": "https://alphacephei.com/vosk/models/vosk-model-small-nl-0.22.zip",
-}
-
-DEFAULT_MODEL = "small-en"
+MODEL_LIST_URL = "https://alphacephei.com/vosk/models/model-list.json"
 DEFAULT_OUTPUT_DIR = "models"
 
-def list_models():
-    print("Available models:")
-    for name, url in MODELS.items():
-        print(f"  {name:<12} : {url}")
-
-def download_model(model_name, output_dir):
-    if model_name not in MODELS:
-        print(f"Error: Model '{model_name}' not found. Use --list to see available models.")
+def fetch_models():
+    try:
+        response = requests.get(MODEL_LIST_URL)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"Error fetching model list: {e}")
         sys.exit(1)
 
-    url = MODELS[model_name]
-    model_zip_name = url.split("/")[-1]
-    model_folder_name = model_zip_name.replace(".zip", "")
-    target_path = os.path.join(output_dir, model_folder_name)
+def list_models(models, output_dir):
+    print(f"{'Name':<40} {'Language':<20} {'Size':<10} {'Status'}")
+    print("-" * 80)
+    
+    available_models = [m for m in models if not m.get('obsolete') == 'true']
+    
+    for model in available_models:
+        name = model['name']
+        lang = model['lang_text']
+        size = model['size_text']
+        
+        # Check if model exists
+        target_path = os.path.join(output_dir, name)
+        status = "Installed" if os.path.exists(target_path) else ""
+        
+        print(f"{name:<40} {lang:<20} {size:<10} {status}")
+    return available_models
+
+def download_model(model_name, output_dir, models=None):
+    if models is None:
+        models = fetch_models()
+    
+    model_info = next((m for m in models if m['name'] == model_name), None)
+    
+    if not model_info:
+        print(f"Error: Model '{model_name}' not found.")
+        return None
+
+    url = model_info['url']
+    target_path = os.path.join(output_dir, model_name)
 
     if os.path.exists(target_path):
         print(f"Model '{model_name}' already exists at '{target_path}'.")
@@ -57,7 +61,7 @@ def download_model(model_name, output_dir):
     block_size = 1024
     progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True)
     
-    zip_path = os.path.join(output_dir, model_zip_name)
+    zip_path = os.path.join(output_dir, f"{model_name}.zip")
     with open(zip_path, 'wb') as file:
         for data in response.iter_content(block_size):
             progress_bar.update(len(data))
@@ -72,15 +76,38 @@ def download_model(model_name, output_dir):
     print(f"Model ready at '{target_path}'.")
     return target_path
 
+def interactive_mode(output_dir):
+    models = fetch_models()
+    available_models = list_models(models, output_dir)
+    
+    print("\nEnter the name of the model to download (or 'q' to quit):")
+    while True:
+        choice = input("> ").strip()
+        if choice.lower() == 'q':
+            break
+        
+        model = next((m for m in available_models if m['name'] == choice), None)
+        if model:
+            download_model(choice, output_dir, models)
+            # Refresh list to show installed status
+            print("\n")
+            list_models(models, output_dir)
+            print("\nEnter another model name or 'q' to quit:")
+        else:
+            print("Invalid model name. Please try again.")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Download Vosk models.")
     parser.add_argument("--list", action="store_true", help="List available models")
-    parser.add_argument("--name", type=str, default=DEFAULT_MODEL, help="Name of the model to download")
+    parser.add_argument("--name", type=str, help="Name of the model to download")
     parser.add_argument("--output", type=str, default=DEFAULT_OUTPUT_DIR, help="Directory to store models")
     
     args = parser.parse_args()
 
     if args.list:
-        list_models()
-    else:
+        models = fetch_models()
+        list_models(models, args.output)
+    elif args.name:
         download_model(args.name, args.output)
+    else:
+        interactive_mode(args.output)
