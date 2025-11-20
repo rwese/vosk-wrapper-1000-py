@@ -118,25 +118,39 @@ def main():
         print(f"Using device ID: {device_id}", file=sys.stderr)
     print("Send SIGUSR1 to start listening, SIGUSR2 to stop.", file=sys.stderr)
 
-    # Start Audio Stream
-    with sd.RawInputStream(samplerate=args.samplerate, blocksize=8000, device=device_id, dtype='int16',
-                           channels=1, callback=audio_callback):
-        
-        was_listening = False
+    # Audio Stream Management
+    stream = None
 
+    try:
         while running:
-            # State transition: Listening -> Not Listening
-            if was_listening and not listening:
-                # We just stopped. Process the accumulated transcript.
+            # Check if we need to start listening
+            if listening and stream is None:
+                print("Starting microphone stream...", file=sys.stderr)
+                try:
+                    stream = sd.RawInputStream(samplerate=args.samplerate, blocksize=8000, device=device_id, dtype='int16',
+                                            channels=1, callback=audio_callback)
+                    stream.start()
+                    print("Microphone stream started.", file=sys.stderr)
+                except Exception as e:
+                    print(f"Error starting stream: {e}", file=sys.stderr)
+                    listening = False # Abort listening if stream fails
+
+            # Check if we need to stop listening
+            if not listening and stream is not None:
+                print("Stopping microphone stream...", file=sys.stderr)
+                stream.stop()
+                stream.close()
+                stream = None
+                print("Microphone stream stopped.", file=sys.stderr)
+                
+                # Process accumulated transcript
                 full_transcript = "\n".join(transcript_buffer)
                 if full_transcript:
                     run_stop_action(args.stop_action, full_transcript)
                 transcript_buffer = [] # Clear buffer
                 rec.Reset() # Reset recognizer for next session
-            
-            was_listening = listening
 
-            if listening:
+            if listening and stream is not None:
                 try:
                     data = audio_queue.get(timeout=0.1)
                     if rec.AcceptWaveform(data):
@@ -147,20 +161,22 @@ def main():
                             sys.stdout.flush()
                             transcript_buffer.append(text)
                     else:
-                        # Partial results can be printed if desired, but user asked to "stream output"
-                        # usually implies final results. We can uncomment below for partials.
-                        # partial = json.loads(rec.PartialResult())
-                        # print(partial)
                         pass
                 except queue.Empty:
                     pass
             else:
                 # Sleep briefly to avoid busy loop when not listening
                 time.sleep(0.1)
-                # Drain queue to avoid stale audio when we start again? 
-                # Or keep it? Let's drain it to be clean.
+                # Drain queue to avoid stale audio when we start again
                 while not audio_queue.empty():
                     audio_queue.get()
+
+    except Exception as e:
+        print(f"An error occurred: {e}", file=sys.stderr)
+    finally:
+        if stream is not None:
+            stream.stop()
+            stream.close()
 
     print("Exiting...", file=sys.stderr)
 
