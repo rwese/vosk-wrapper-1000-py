@@ -4,6 +4,22 @@ A simple, robust, and configurable Python-based speech recognition service using
 
 **Repository**: [github.com/rwese/vosk-wrapper-1000-py](https://github.com/rwese/vosk-wrapper-1000-py)
 
+## 🚀 **What's New in v2.0**
+
+### **Major Architecture Refactoring**
+- **Modular Design**: Transformed from monolithic 470-line file to 7 focused modules for better maintainability
+- **Enhanced Audio Processing**: Upgraded to soxr HQ streaming resampling with configurable noise filtering
+- **Audio Recording**: Record processed audio to WAV files for review and debugging
+- **Cross-Platform Audio System Detection**: Automatic detection of PipeWire/PulseAudio/ALSA/CoreAudio/WASAPI
+- **Improved Device Management**: Enhanced device compatibility validation and management
+
+### **New Features**
+- **Configurable Noise Reduction**: `--noise-reduction 0.0-1.0` (default: 0.2)
+- **Noise Type Selection**: `--stationary-noise` vs `--non-stationary-noise` 
+- **Audio Recording**: `--record-audio filename.wav` records exactly what Vosk receives
+- **Enhanced CLI**: Better help, examples, and error handling
+- **Audio System Info**: Detailed audio backend information for troubleshooting
+
 ## Installation
 
 Install directly from GitHub using uv or pip:
@@ -64,6 +80,12 @@ If you installed the package, use the commands directly:
       --words \                   # Enable word-level timestamps
       --partial-words \           # Enable partial results
       --grammar "yes no stop go"  # Restrict vocabulary
+
+    # Enhanced audio processing options
+    vosk-wrapper-1000 daemon \
+      --noise-reduction 0.3 \     # Stronger noise reduction (0.0-1.0)
+      --non-stationary-noise \   # Adaptive noise filtering (slower)
+      --record-audio output.wav   # Record processed audio
 
     # Run without noise filtering (if needed)
     vosk-wrapper-1000 daemon --disable-noise-filter
@@ -169,33 +191,74 @@ vosk-wrapper-1000 daemon
 # Output: Audio will be resampled from 48000 Hz to 16000 Hz
 ```
 
-## Noise Filtering
+## Enhanced Audio Processing
 
-Vosk-wrapper-1000 includes built-in noise filtering using the **noisereduce** library to improve speech recognition accuracy in noisy environments. The noise filter is **enabled by default** and uses a stationary spectral gating algorithm optimized for low CPU usage.
+### **High-Quality Audio Resampling**
 
-### How It Works
+Vosk-wrapper-1000 now uses **soxr** for high-quality streaming resampling:
+- **HQ Quality**: Better than scipy resampling with optimized algorithms
+- **Streaming**: Real-time resampling with proper chunking and finalization
+- **Automatic**: Handles any device-to-model sample rate conversion transparently
 
-The noise filter:
-- Analyzes incoming audio for background noise patterns
-- Applies spectral gating to reduce stationary noise (fans, AC, electrical hum, etc.)
-- Processes audio in real-time with minimal latency
-- Uses CPU-efficient stateless mode to minimize performance impact
+### **Configurable Noise Filtering**
 
-### Disabling Noise Filtering
-
-If you want to disable noise filtering (e.g., in very quiet environments or for debugging):
+Advanced noise reduction using the **noisereduce** library with configurable options:
 
 ```bash
-# Disable noise filtering
+# Configure noise reduction strength (0.0-1.0, default: 0.2)
+vosk-wrapper-1000 daemon --noise-reduction 0.3
+
+# Choose noise type (default: stationary)
+vosk-wrapper-1000 daemon --stationary-noise      # Faster, good for constant noise
+vosk-wrapper-1000 daemon --non-stationary-noise  # Slower, adapts to changing noise
+
+# Disable noise filtering completely
 vosk-wrapper-1000 daemon --disable-noise-filter
 ```
 
-### Performance
+**Noise Reduction Types:**
+- **Stationary** (default): Optimized for constant background noise (fans, AC, hum)
+- **Non-stationary**: Adapts to changing noise patterns (better for variable environments)
 
-The noise filter is optimized for efficiency:
-- Uses stateless processing mode for lower CPU usage
-- Applied before resampling to minimize computational overhead
-- Typically adds only 5-10% CPU overhead on modern processors
+### **Audio Recording**
+
+Record exactly what Vosk receives for review and debugging:
+
+```bash
+# Record processed audio to WAV file
+vosk-wrapper-1000 daemon --record-audio session.wav
+
+# Combine with other options
+vosk-wrapper-1000 daemon \
+  --record-audio debug_session.wav \
+  --noise-reduction 0.4 \
+  --device "USB Microphone"
+```
+
+The recording includes all processing (noise filtering, resampling) that Vosk receives, making it perfect for:
+- Debugging recognition issues
+- Reviewing audio quality
+- Training data preparation
+- Performance analysis
+
+### **Cross-Platform Audio System Detection**
+
+Automatically detects and reports your audio system:
+
+```bash
+vosk-wrapper-1000 daemon --foreground
+# Output shows:
+# === Audio System Information ===
+# Platform: Linux
+# Audio System: pipewire
+# Audio Backend: pipewire-python / sounddevice
+# Details: Pipewire Version, availability, etc.
+```
+
+**Supported Systems:**
+- **Linux**: PipeWire, PulseAudio, ALSA
+- **macOS**: CoreAudio
+- **Windows**: WASAPI, DirectSound, MME
 
 ## Advanced Recognition Options
 
@@ -340,17 +403,98 @@ chmod +x ~/.config/vosk-wrapper-1000/hooks/*/*.py
 
 You can also reference the [repository's `hooks/` directory](https://github.com/rwese/vosk-wrapper-1000-py/tree/main/hooks) for examples of how to write custom hooks.
 
+## Architecture Overview
+
+### **Modular Design (v2.0+)**
+
+The codebase is now organized into focused modules:
+
+```
+vosk-wrapper-1000-py/
+├── main.py              # CLI interface and orchestration
+├── audio_processor.py    # soxr resampling + noise filtering
+├── audio_recorder.py     # WAV file recording
+├── audio_system.py       # Cross-platform audio system detection
+├── device_manager.py     # Audio device management
+├── model_manager.py      # Vosk model validation
+├── signal_manager.py     # Daemon signal handling
+├── hook_manager.py       # Hook system execution
+└── pid_manager.py        # Process instance management
+```
+
+**Benefits:**
+- **Maintainability**: Each module has a single responsibility
+- **Testability**: Individual components can be unit tested
+- **Extensibility**: Easy to add new features or modify existing ones
+- **Debugging**: Issues can be isolated to specific modules
+
 ## Troubleshooting
 
 ### Audio Device Issues
 
 **Problem: "Invalid sample rate" or "PaErrorCode -9997" error**
 
-This should no longer occur as the application automatically uses your device's native sample rate and handles resampling internally. If you still encounter this error:
+This should no longer occur as application automatically uses your device's native sample rate and handles resampling internally. If you still encounter this error:
 
 1. List your audio devices to verify they're detected:
    ```bash
    vosk-wrapper-1000 daemon --list-devices
+   ```
+
+2. Check audio system information:
+   ```bash
+   vosk-wrapper-1000 daemon --foreground
+   # Look for "=== Audio System Information ===" section
+   ```
+
+3. Try running in foreground mode to see detailed error messages:
+   ```bash
+   vosk-wrapper-1000 daemon --foreground
+   ```
+
+**Problem: No audio input detected**
+
+1. Verify your device is recognized:
+   ```bash
+   vosk-wrapper-1000 daemon --list-devices
+   ```
+
+2. Check device compatibility:
+   ```bash
+   vosk-wrapper-1000 daemon --foreground --device "Your Device"
+   # Look for "Device compatibility:" message
+   ```
+
+3. Specify your device explicitly:
+   ```bash
+   vosk-wrapper-1000 daemon --device "Your Microphone Name"
+   # or by ID
+   vosk-wrapper-1000 daemon --device 0
+   ```
+
+### Audio Quality Issues
+
+**Problem: Poor recognition accuracy**
+
+1. **Adjust noise reduction**:
+   ```bash
+   # Try stronger noise reduction
+   vosk-wrapper-1000 daemon --noise-reduction 0.4
+   
+   # Or try non-stationary noise for variable environments
+   vosk-wrapper-1000 daemon --non-stationary-noise
+   ```
+
+2. **Record and review audio**:
+   ```bash
+   vosk-wrapper-1000 daemon --record-audio debug.wav
+   # Listen to the file to check audio quality
+   ```
+
+3. **Check device compatibility**:
+   ```bash
+   vosk-wrapper-1000 daemon --foreground
+   # Look for device compatibility messages
    ```
 
 2. Try running in foreground mode to see detailed error messages:
@@ -422,3 +566,20 @@ vosk-wrapper-1000 daemon --foreground
 ```
 
 This will show all log messages, errors, and recognition output in real-time.
+
+**Advanced Debugging with Audio Recording:**
+```bash
+# Record audio to analyze quality issues
+vosk-wrapper-1000 daemon --record-audio debug_session.wav --foreground
+
+# Test with different noise reduction settings
+vosk-wrapper-1000 daemon --noise-reduction 0.5 --record-audio strong_noise.wav --foreground
+vosk-wrapper-1000 daemon --disable-noise-filter --record-audio no_filter.wav --foreground
+```
+
+**Performance Monitoring:**
+```bash
+# Monitor CPU usage with different settings
+htop &  # In one terminal
+vosk-wrapper-1000 daemon --noise-reduction 0.2 --foreground  # In another
+```
