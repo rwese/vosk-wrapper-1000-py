@@ -59,20 +59,33 @@ def run_service(args):
     # Resolve device and get info
     device_info = device_manager.get_device_info(args.device)
     if not device_info:
-        print(f"Error: Device '{args.device}' not found", file=sys.stderr)
-        sys.exit(1)
-    device_id = device_info["id"]
-    device_samplerate = int(device_info["default_samplerate"])
-
-    # Validate device compatibility
-    is_compatible, compatibility_msg = device_manager.validate_device_for_model(
-        device_id, model_manager.get_model_sample_rate(args.model)
-    )
-    if not is_compatible:
-        print(f"Error: {compatibility_msg}", file=sys.stderr)
-        sys.exit(1)
+        # If no device specified, use system default
+        if args.device is None:
+            device_id = None  # Will use sounddevice default
+            device_samplerate = 48000  # Default fallback
+            print("Using system default audio device", file=sys.stderr)
+        else:
+            print(f"Error: Device '{args.device}' not found", file=sys.stderr)
+            sys.exit(1)
     else:
-        print(f"Device compatibility: {compatibility_msg}", file=sys.stderr)
+        device_id = device_info["id"]
+        device_samplerate = int(device_info["default_samplerate"])
+
+    # Validate device compatibility (only if device_id is not None)
+    if device_id is not None:
+        is_compatible, compatibility_msg = device_manager.validate_device_for_model(
+            device_id, model_manager.get_model_sample_rate(args.model)
+        )
+        if not is_compatible:
+            print(f"Error: {compatibility_msg}", file=sys.stderr)
+            sys.exit(1)
+        else:
+            print(f"Device compatibility: {compatibility_msg}", file=sys.stderr)
+    else:
+        print(
+            "Using system default device (compatibility will be checked at runtime)",
+            file=sys.stderr,
+        )
 
     # Get model sample rate
     model_sample_rate = model_manager.get_model_sample_rate(args.model)
@@ -169,14 +182,19 @@ def run_service(args):
                     import sounddevice as sd  # Import here, in child process after fork
 
                     # Create stream using soxr-optimized callback
-                    stream = sd.InputStream(
-                        samplerate=audio_processor.device_rate,
-                        blocksize=1024,  # Smaller blocksize for better streaming
-                        device=device_id,
-                        dtype="float32",  # Use float32 for better soxr integration
-                        channels=1,
-                        callback=audio_callback,
-                    )
+                    stream_kwargs = {
+                        "samplerate": audio_processor.device_rate,
+                        "blocksize": 1024,  # Smaller blocksize for better streaming
+                        "dtype": "float32",  # Use float32 for better soxr integration
+                        "channels": 1,
+                        "callback": audio_callback,
+                    }
+
+                    # Only specify device if not None (use system default)
+                    if device_id is not None:
+                        stream_kwargs["device"] = device_id
+
+                    stream = sd.InputStream(**stream_kwargs)
                     print(
                         f"Microphone stream started at {audio_processor.device_rate} Hz (using soxr resampling to {audio_processor.model_rate} Hz).",
                         file=sys.stderr,

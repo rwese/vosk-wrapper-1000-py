@@ -37,10 +37,14 @@ class DeviceManager:
             print(f"Error refreshing devices: {e}", file=sys.stderr)
             return []
 
-    def get_device_info(self, device_arg: str) -> Optional[Dict]:
+    def get_device_info(self, device_arg: Optional[str]) -> Optional[Dict]:
         """Get device info by name or ID."""
         if self.devices_cache is None:
             self.refresh_devices()
+
+        # If no device specified, return None (will use default)
+        if device_arg is None:
+            return None
 
         # Try to find by ID first
         device_id = None
