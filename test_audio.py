@@ -6,7 +6,6 @@ import time
 import signal
 import argparse
 import queue
-import numpy as np
 
 
 def main():

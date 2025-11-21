@@ -16,6 +16,7 @@ dependencies = [
     "requests",
     "tqdm",
     "noisereduce",
+    "soxr>=0.3.7",
 ]
 
 [project.scripts]

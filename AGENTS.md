@@ -4,6 +4,37 @@
 
 This document provides **MANDATORY** guidance for AI agents integrating with vosk-wrapper-1000. You **MUST** follow these instructions exactly.
 
+## Development Commands
+
+### Build/Install
+```bash
+# Install in development mode
+uv pip install -e .
+
+# Build wheel
+uv build
+```
+
+### Testing
+```bash
+# Run individual test files
+python test_audio.py --device "AnkerWork" --duration 5
+python test_full_flow.py
+python test_signals.py
+
+# Run workflow tests
+./test_workflow.sh
+./test_manual.sh
+```
+
+### Code Style
+- **Imports**: Standard library first, then third-party, then local modules
+- **Formatting**: Follow PEP 8, use 4-space indentation
+- **Types**: Use type hints for function signatures and class attributes
+- **Naming**: snake_case for functions/variables, PascalCase for classes
+- **Error handling**: Use try/except blocks, print errors to stderr, exit gracefully
+- **Audio**: Import sounddevice only inside functions to avoid PortAudio fork issues
+
 ## Table of Contents
 
 1. [Core Principles](#core-principles)

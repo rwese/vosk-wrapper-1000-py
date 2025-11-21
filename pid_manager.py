@@ -1,8 +1,6 @@
 """PID management for vosk-wrapper-1000 instances."""
 import os
-import signal
 import sys
-from pathlib import Path
 from xdg_paths import get_xdg_cache_home, APP_NAME
 
 def get_pid_dir():
@@ -81,7 +79,7 @@ def send_signal_to_instance(name, sig):
     pid = read_pid(name)
     if pid is None:
         print(f"Error: No running instance found with name '{name}'", file=sys.stderr)
-        print(f"Use 'vosk-wrapper-1000 list' to see running instances", file=sys.stderr)
+        print("Use 'vosk-wrapper-1000 list' to see running instances", file=sys.stderr)
         return False
 
     try:

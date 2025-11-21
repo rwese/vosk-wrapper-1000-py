@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Main daemon service for vosk-wrapper-1000."""
 
 import argparse
@@ -16,13 +15,13 @@ from signal_manager import SignalManager
 from model_manager import ModelManager
 from device_manager import DeviceManager
 from hook_manager import HookManager
+from xdg_paths import get_hooks_dir
 from pid_manager import (
     write_pid,
     remove_pid,
     list_instances,
     send_signal_to_instance,
 )
-from xdg_paths import get_hooks_dir
 
 
 def run_service(args):
@@ -52,16 +51,10 @@ def run_service(args):
         sys.exit(0)
 
     # Print audio system information
-    from audio_system import print_audio_system_info
-
-    print_audio_system_info()
+    device_manager.print_audio_system_info()
 
     # Resolve device and get info
-    device_info = device_manager.get_device_info(args.device)
-    if not device_info:
-        print(f"Error: Device '{args.device}' not found", file=sys.stderr)
-        sys.exit(1)
-    device_id = device_info["id"]
+    device_id, device_info = device_manager.get_device_info(args.device)
     device_samplerate = int(device_info["default_samplerate"])
 
     # Validate device compatibility
@@ -98,7 +91,7 @@ def run_service(args):
     print(f"Loading model from {args.model}...", file=sys.stderr)
     import vosk
 
-    model = vosk.Model(str(args.model))
+    model = vosk.Model(args.model)
 
     # Create recognizer with optional grammar
     if args.grammar:
@@ -223,7 +216,9 @@ def run_service(args):
                     signal_manager.set_running(False)
                 elif action == 102:
                     signal_manager.set_running(False)
+                    signal_manager.set_listening(False)
 
+            # Process audio if listening
             if signal_manager.is_listening() and stream is not None:
                 try:
                     data = audio_queue.get(timeout=0.1)
@@ -446,25 +441,9 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
     )
 
     # Control commands
-    start_parser = subparsers.add_parser(
-        "start", help="Start listening on a running instance"
-    )
-    start_parser.add_argument(
-        "name", nargs="?", default="default", help="Instance name"
-    )
-
-    stop_parser = subparsers.add_parser(
-        "stop", help="Stop listening on a running instance"
-    )
-    stop_parser.add_argument("name", nargs="?", default="default", help="Instance name")
-
-    terminate_parser = subparsers.add_parser(
-        "terminate", help="Terminate a running instance"
-    )
-    terminate_parser.add_argument(
-        "name", nargs="?", default="default", help="Instance name"
-    )
-
+    subparsers.add_parser("start", help="Start listening on a running instance")
+    subparsers.add_parser("stop", help="Stop listening on a running instance")
+    subparsers.add_parser("terminate", help="Terminate a running instance")
     subparsers.add_parser("list", help="List all running instances")
 
     args = parser.parse_args()
