@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vosk-wrapper-1000"
+version = "0.1.0"
+description = "A simple, robust, and configurable Python-based speech recognition service using Vosk"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "vosk",
+    "sounddevice",
+    "numpy",
+    "scipy",
+    "requests",
+    "tqdm",
+    "noisereduce",
+]
+
+[project.scripts]
+vosk-wrapper-1000 = "main:main"
+vosk-download-model-1000 = "download_model:main"
+
+[tool.hatch.build.targets.wheel]
+only-include = ["main.py", "download_model.py", "hook_manager.py", "xdg_paths.py", "pid_manager.py", "audio_backend.py"]
+
+[project.optional-dependencies]
+pipewire = ["pipewire-python"]
+
+[dependency-groups]
+dev = []
