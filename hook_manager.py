@@ -1,7 +1,6 @@
 import os
 import subprocess
 import sys
-import glob
 
 class HookManager:
     def __init__(self, hooks_dir="hooks"):

@@ -1,11 +1,9 @@
 """Audio backend abstraction layer for cross-platform support."""
 import platform
-import queue
 import threading
 from abc import ABC, abstractmethod
 from typing import Optional, Callable
 
-import numpy as np
 
 
 class AudioBackend(ABC):

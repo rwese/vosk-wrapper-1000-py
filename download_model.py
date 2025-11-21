@@ -5,7 +5,6 @@ import requests
 import zipfile
 import shutil
 from tqdm import tqdm
-import json
 
 from xdg_paths import get_models_dir
 
