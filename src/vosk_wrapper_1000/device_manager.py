@@ -88,6 +88,16 @@ class DeviceManager:
 
         if not devices:
             print("No audio input devices found!", file=sys.stderr)
+            print("\nTroubleshooting steps:", file=sys.stderr)
+            print("1. Check microphone is connected and not muted", file=sys.stderr)
+            print("2. Grant microphone permissions to Terminal/Python", file=sys.stderr)
+            print("3. Close other apps using the microphone", file=sys.stderr)
+            print("\nmacOS Microphone Permissions:", file=sys.stderr)
+            print(
+                "  System Preferences → Security & Privacy → Privacy → Microphone",
+                file=sys.stderr,
+            )
+            print("  Enable Terminal (or your terminal application)", file=sys.stderr)
             return
 
         print("Available Audio Input Devices:", file=sys.stderr)

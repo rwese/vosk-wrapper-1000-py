@@ -37,9 +37,9 @@ def _detect_linux_audio() -> Dict[str, str]:
         )
         if result.returncode == 0:
             audio_info["audio_system"] = "pipewire"
-            audio_info[
-                "audio_backend"
-            ] = "pipewire-python (preferred) / sounddevice (fallback)"
+            audio_info["audio_backend"] = (
+                "pipewire-python (preferred) / sounddevice (fallback)"
+            )
 
             # Get PipeWire version
             try:
@@ -47,9 +47,9 @@ def _detect_linux_audio() -> Dict[str, str]:
                     ["pipewire", "--version"], capture_output=True, text=True, timeout=2
                 )
                 if pw_version.returncode == 0:
-                    audio_info["details"][
-                        "pipewire_version"
-                    ] = pw_version.stdout.strip()
+                    audio_info["details"]["pipewire_version"] = (
+                        pw_version.stdout.strip()
+                    )
             except Exception:
                 pass
 
@@ -61,9 +61,9 @@ def _detect_linux_audio() -> Dict[str, str]:
                 audio_info["audio_backend"] = "pipewire-python"
             except ImportError:
                 audio_info["details"]["pipewire_python_available"] = False
-                audio_info["details"][
-                    "pipewire_python_install"
-                ] = "pip install pipewire-python"
+                audio_info["details"]["pipewire_python_install"] = (
+                    "pip install pipewire-python"
+                )
 
             return audio_info
     except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -87,9 +87,9 @@ def _detect_linux_audio() -> Dict[str, str]:
                     timeout=2,
                 )
                 if pa_version.returncode == 0:
-                    audio_info["details"][
-                        "pulseaudio_version"
-                    ] = pa_version.stdout.strip()
+                    audio_info["details"]["pulseaudio_version"] = (
+                        pa_version.stdout.strip()
+                    )
             except Exception:
                 pass
 
@@ -142,8 +142,9 @@ def _detect_macos_audio() -> Dict[str, str]:
             timeout=5,
         )
         if result.returncode == 0:
-            # Count audio devices
-            device_count = result.stdout.count("Audio Device:")
+            # Count audio input devices more reliably
+            # Look for "Default Input Device: Yes" which indicates input devices
+            device_count = result.stdout.count("Default Input Device: Yes")
             audio_info["details"]["audio_devices"] = device_count
     except Exception:
         pass
