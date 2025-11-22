@@ -1,7 +1,9 @@
 """PID management for vosk-wrapper-1000 instances."""
+
 import os
 import sys
-from xdg_paths import get_xdg_cache_home, APP_NAME
+from .xdg_paths import get_xdg_cache_home, APP_NAME
+
 
 def get_pid_dir():
     """Get the directory for storing PID files."""
@@ -9,10 +11,12 @@ def get_pid_dir():
     pid_dir.mkdir(parents=True, exist_ok=True)
     return pid_dir
 
+
 def get_pid_file(name="default"):
     """Get the PID file path for a named instance."""
     pid_dir = get_pid_dir()
     return pid_dir / f"{name}.pid"
+
 
 def write_pid(name="default"):
     """Write the current process PID to a file."""
@@ -25,7 +29,10 @@ def write_pid(name="default"):
             old_pid = int(pid_file.read_text().strip())
             # Check if process is actually running
             os.kill(old_pid, 0)  # This raises OSError if process doesn't exist
-            print(f"Error: Instance '{name}' is already running with PID {old_pid}", file=sys.stderr)
+            print(
+                f"Error: Instance '{name}' is already running with PID {old_pid}",
+                file=sys.stderr,
+            )
             print(f"If this is incorrect, remove: {pid_file}", file=sys.stderr)
             sys.exit(1)
         except (OSError, ValueError):
@@ -35,11 +42,13 @@ def write_pid(name="default"):
     pid_file.write_text(str(pid))
     return pid
 
+
 def remove_pid(name="default"):
     """Remove the PID file for a named instance."""
     pid_file = get_pid_file(name)
     if pid_file.exists():
         pid_file.unlink()
+
 
 def read_pid(name="default"):
     """Read the PID for a named instance."""
@@ -55,6 +64,7 @@ def read_pid(name="default"):
     except (OSError, ValueError):
         # Process doesn't exist or PID file is corrupted
         return None
+
 
 def list_instances():
     """List all running instances."""
@@ -74,6 +84,7 @@ def list_instances():
 
     return instances
 
+
 def send_signal_to_instance(name, sig):
     """Send a signal to a named instance."""
     pid = read_pid(name)
@@ -86,5 +97,8 @@ def send_signal_to_instance(name, sig):
         os.kill(pid, sig)
         return True
     except OSError as e:
-        print(f"Error sending signal to instance '{name}' (PID {pid}): {e}", file=sys.stderr)
+        print(
+            f"Error sending signal to instance '{name}' (PID {pid}): {e}",
+            file=sys.stderr,
+        )
         return False

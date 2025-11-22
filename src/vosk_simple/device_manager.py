@@ -4,7 +4,7 @@
 import sounddevice as sd
 from typing import List, Dict, Optional, Tuple
 import sys
-from audio_system import validate_device_compatibility
+from .audio_system import validate_device_compatibility
 
 
 class DeviceManager:

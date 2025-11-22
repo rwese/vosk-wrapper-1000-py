@@ -17,15 +17,88 @@ uv build
 
 ### Testing
 ```bash
-# Run individual test files
-python test_audio.py --device "AnkerWork" --duration 5
-python test_full_flow.py
-python test_signals.py
+# Run unit tests
+python -m pytest tests/unit/
+
+# Run integration tests
+python -m pytest tests/integration/
+
+# Run all tests
+python -m pytest tests/
+
+# Run individual test files (legacy)
+python tests/test_audio.py --device "AnkerWork" --duration 5
+python tests/test_full_flow.py
+python tests/test_signals.py
 
 # Run workflow tests
 ./test_workflow.sh
 ./test_manual.sh
 ```
+
+## Directory Structure
+
+The vosk-simple project follows a clean, organized structure:
+
+```
+vosk-simple/
+├── src/                    # Source code
+│   └── vosk_simple/       # Main package
+│       ├── __init__.py     # Package initialization
+│       ├── main.py         # Main entry point
+│       ├── audio_*.py      # Audio processing modules
+│       ├── config_manager.py # Configuration management
+│       ├── model_manager.py # Model management
+│       ├── hook_manager.py # Hook system
+│       ├── signal_manager.py # Signal handling
+│       ├── pid_manager.py  # Process ID management
+│       ├── device_manager.py # Audio device management
+│       ├── download_model.py # Model downloading
+│       └── xdg_paths.py   # XDG path utilities
+├── tests/                  # Test suite
+│   ├── unit/              # Unit tests
+│   │   ├── test_config_manager.py
+│   │   ├── test_xdg_paths.py
+│   │   └── test_*.py      # Other unit tests
+│   └── integration/       # Integration tests
+│       └── test_integration.py
+├── config/                # Configuration files
+│   └── default.yaml       # Default configuration
+├── docs/                  # Documentation
+├── examples/              # Example scripts
+├── hooks/                 # Hook scripts
+│   ├── line/             # Line processing hooks
+│   ├── start/            # Start hooks
+│   └── stop/             # Stop hooks
+├── pyproject.toml         # Project configuration
+├── requirements.txt       # Dependencies
+├── AGENTS.md             # This file
+└── README.md             # Project documentation
+```
+
+### Key Directories
+
+- **src/vosk_simple/**: All Python source code organized as a proper package
+- **tests/**: Comprehensive test suite separated into unit and integration tests
+- **config/**: Configuration files with sensible defaults
+- **docs/**: Project documentation and guides
+- **examples/**: Example usage scripts and tutorials
+- **hooks/**: Hook scripts for extending functionality
+
+### Configuration System
+
+The project uses a hierarchical configuration system:
+
+1. **Default values** in `config/default.yaml`
+2. **User config** in `~/.config/vosk-simple/config.yaml`
+3. **Environment variables** with `VOSK_` prefix
+4. **Command line arguments** (highest priority)
+
+Configuration is managed by `src/vosk_simple/config_manager.py` and supports:
+- YAML configuration files
+- Environment variable overrides
+- Type validation and defaults
+- Hot reloading capabilities
 
 ### Code Style
 - **Imports**: Standard library first, then third-party, then local modules

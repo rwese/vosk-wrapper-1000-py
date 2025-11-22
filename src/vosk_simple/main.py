@@ -9,14 +9,15 @@ import sys
 import time
 
 # Import local modules
-from audio_processor import AudioProcessor
-from audio_recorder import AudioRecorder
-from signal_manager import SignalManager
-from model_manager import ModelManager
-from device_manager import DeviceManager
-from hook_manager import HookManager
-from xdg_paths import get_hooks_dir
-from pid_manager import (
+from .audio_processor import AudioProcessor
+from .audio_recorder import AudioRecorder
+from .signal_manager import SignalManager
+from .model_manager import ModelManager
+from .device_manager import DeviceManager
+from .hook_manager import HookManager
+from .xdg_paths import get_hooks_dir
+from .audio_system import print_audio_system_info
+from .pid_manager import (
     write_pid,
     remove_pid,
     list_instances,
@@ -32,18 +33,18 @@ def run_service(args):
     device_manager = DeviceManager()
     hook_manager = HookManager(args.hooks_dir)
 
-    # Initialize audio components
+    # Initialize audio components with placeholder rates
     audio_processor = AudioProcessor(
-        device_rate=None,  # Will be set after device detection
-        model_rate=None,  # Will be set after model loading
+        device_rate=16000,  # Placeholder, will be updated after device detection
+        model_rate=16000,  # Placeholder, will be updated after model loading
         noise_filter_enabled=not args.disable_noise_filter,
         noise_reduction_strength=args.noise_reduction,
         stationary_noise=args.stationary_noise and not args.non_stationary_noise,
     )
 
     audio_recorder = AudioRecorder(
-        args.record_audio, None
-    )  # Sample rate will be set later
+        args.record_audio, 16000
+    )  # Sample rate will be updated later
 
     # Handle --list-devices before fork (special case)
     if args.list_devices:
@@ -51,27 +52,36 @@ def run_service(args):
         sys.exit(0)
 
     # Print audio system information
-    device_manager.print_audio_system_info()
+    print_audio_system_info()
 
     # Resolve device and get info
-    device_id, device_info = device_manager.get_device_info(args.device)
-    device_samplerate = int(device_info["default_samplerate"])
-
-    # Validate device compatibility
-    is_compatible, compatibility_msg = device_manager.validate_device_for_model(
-        device_id, model_manager.get_model_sample_rate(args.model)
-    )
-    if not is_compatible:
-        print(f"Error: {compatibility_msg}", file=sys.stderr)
-        sys.exit(1)
+    device_info = device_manager.get_device_info(args.device)
+    if device_info is None:
+        device_id = None
+        device_samplerate = None
     else:
-        print(f"Device compatibility: {compatibility_msg}", file=sys.stderr)
+        device_id = device_info["id"]
+        device_samplerate = int(device_info["default_samplerate"])
+
+    # Validate device compatibility (only if device is specified)
+    if device_id is not None:
+        is_compatible, compatibility_msg = device_manager.validate_device_for_model(
+            device_id, model_manager.get_model_sample_rate(args.model)
+        )
+        if not is_compatible:
+            print(f"Error: {compatibility_msg}", file=sys.stderr)
+            sys.exit(1)
+        else:
+            print(f"Device compatibility: {compatibility_msg}", file=sys.stderr)
+    else:
+        print("Using default audio device", file=sys.stderr)
 
     # Get model sample rate
     model_sample_rate = model_manager.get_model_sample_rate(args.model)
 
     # Update audio processor with rates
-    audio_processor.device_rate = device_samplerate
+    if device_samplerate is not None:
+        audio_processor.device_rate = device_samplerate
     audio_processor.model_rate = model_sample_rate
 
     # Setup audio recorder with model rate
@@ -91,7 +101,7 @@ def run_service(args):
     print(f"Loading model from {args.model}...", file=sys.stderr)
     import vosk
 
-    model = vosk.Model(args.model)
+    model = vosk.Model(str(args.model))
 
     # Create recognizer with optional grammar
     if args.grammar:
@@ -113,9 +123,13 @@ def run_service(args):
     signal_manager._setup_handlers()
 
     print(f"Service started. PID: {os.getpid()}", file=sys.stderr)
-    print(
-        f"Using audio device: {device_info['name']} (ID: {device_id})", file=sys.stderr
-    )
+    if device_info is not None:
+        print(
+            f"Using audio device: {device_info['name']} (ID: {device_id})",
+            file=sys.stderr,
+        )
+    else:
+        print("Using default audio device", file=sys.stderr)
     print("Send SIGUSR1 to start listening, SIGUSR2 to stop.", file=sys.stderr)
 
     # Audio Stream Management
@@ -441,9 +455,25 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
     )
 
     # Control commands
-    subparsers.add_parser("start", help="Start listening on a running instance")
-    subparsers.add_parser("stop", help="Stop listening on a running instance")
-    subparsers.add_parser("terminate", help="Terminate a running instance")
+    start_parser = subparsers.add_parser(
+        "start", help="Start listening on a running instance"
+    )
+    start_parser.add_argument(
+        "name", nargs="?", default="default", help="Instance name"
+    )
+
+    stop_parser = subparsers.add_parser(
+        "stop", help="Stop listening on a running instance"
+    )
+    stop_parser.add_argument("name", nargs="?", default="default", help="Instance name")
+
+    terminate_parser = subparsers.add_parser(
+        "terminate", help="Terminate a running instance"
+    )
+    terminate_parser.add_argument(
+        "name", nargs="?", default="default", help="Instance name"
+    )
+
     subparsers.add_parser("list", help="List all running instances")
 
     args = parser.parse_args()

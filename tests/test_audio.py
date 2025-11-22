@@ -11,20 +11,18 @@ import queue
 def main():
     parser = argparse.ArgumentParser(description="Test audio capture")
     parser.add_argument(
-        "--device",
-        type=str,
-        help="Audio device name or substring to match"
+        "--device", type=str, help="Audio device name or substring to match"
     )
     parser.add_argument(
         "--duration",
         type=int,
         default=10,
-        help="Recording duration in seconds (default: 10)"
+        help="Recording duration in seconds (default: 10)",
     )
     parser.add_argument(
         "--list-devices",
         action="store_true",
-        help="List available audio devices and exit"
+        help="List available audio devices and exit",
     )
 
     args = parser.parse_args()
@@ -41,9 +39,11 @@ def main():
         print("Available audio devices:")
         devices = sd.query_devices()
         for idx, dev in enumerate(devices):
-            if dev['max_input_channels'] > 0:
-                print(f"  {idx}: {dev['name']} (inputs: {dev['max_input_channels']}, "
-                      f"sample rate: {dev['default_samplerate']})")
+            if dev["max_input_channels"] > 0:
+                print(
+                    f"  {idx}: {dev['name']} (inputs: {dev['max_input_channels']}, "
+                    f"sample rate: {dev['default_samplerate']})"
+                )
         return 0
 
     # Find device if specified
@@ -51,7 +51,10 @@ def main():
     if args.device:
         devices = sd.query_devices()
         for idx, dev in enumerate(devices):
-            if dev['max_input_channels'] > 0 and args.device.lower() in dev['name'].lower():
+            if (
+                dev["max_input_channels"] > 0
+                and args.device.lower() in dev["name"].lower()
+            ):
                 device_idx = idx
                 print(f"Found device: {dev['name']} (index: {idx})")
                 break
@@ -60,7 +63,7 @@ def main():
             print(f"Error: Could not find device matching '{args.device}'")
             print("\nAvailable input devices:")
             for idx, dev in enumerate(devices):
-                if dev['max_input_channels'] > 0:
+                if dev["max_input_channels"] > 0:
                     print(f"  {idx}: {dev['name']}")
             return 1
     else:
@@ -71,7 +74,7 @@ def main():
 
     # Get device info and use its native sample rate
     device_info = sd.query_devices(device_idx)
-    sample_rate = int(device_info['default_samplerate'])
+    sample_rate = int(device_info["default_samplerate"])
     blocksize = sample_rate // 2  # 0.5 second chunks
     channels = 1
 
@@ -119,10 +122,10 @@ def main():
             samplerate=sample_rate,
             blocksize=blocksize,
             device=device_idx,
-            dtype='int16',
+            dtype="int16",
             channels=channels,
-            callback=audio_callback
-        ) as stream:
+            callback=audio_callback,
+        ):
             start_time = time.time()
             print("Stream started successfully!")
             print()
@@ -138,10 +141,12 @@ def main():
                     if elapsed - last_report >= 1.0:
                         total_bytes = total_frames * 2  # int16 = 2 bytes
                         mb_per_sec = (total_bytes / elapsed) / (1024 * 1024)
-                        print(f"[{elapsed:.1f}s] Chunks: {chunk_count}, "
-                              f"Frames: {total_frames}, "
-                              f"Rate: {mb_per_sec:.2f} MB/s, "
-                              f"Errors: {error_count}")
+                        print(
+                            f"[{elapsed:.1f}s] Chunks: {chunk_count}, "
+                            f"Frames: {total_frames}, "
+                            f"Rate: {mb_per_sec:.2f} MB/s, "
+                            f"Errors: {error_count}"
+                        )
                         last_report = elapsed
 
                 except queue.Empty:
@@ -152,6 +157,7 @@ def main():
     except Exception as e:
         print(f"\nError: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
@@ -163,7 +169,9 @@ def main():
     print(f"Duration: {elapsed:.2f} seconds")
     print(f"Chunks received: {chunk_count}")
     print(f"Frames received: {total_frames}")
-    print(f"Total data: {total_bytes / 1024:.1f} KB ({total_bytes / (1024*1024):.2f} MB)")
+    print(
+        f"Total data: {total_bytes / 1024:.1f} KB ({total_bytes / (1024*1024):.2f} MB)"
+    )
     print(f"Average rate: {(total_bytes / elapsed) / (1024*1024):.2f} MB/s")
     print(f"Errors: {error_count}")
 

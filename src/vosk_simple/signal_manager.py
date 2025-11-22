@@ -46,3 +46,7 @@ class SignalManager:
     def set_listening(self, listening: bool):
         """Set listening state."""
         self.listening = listening
+
+    def set_running(self, running: bool):
+        """Set running state."""
+        self.running = running
