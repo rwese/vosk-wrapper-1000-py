@@ -59,9 +59,11 @@ class AudioProcessor:
             resampled_float = self.soxr_resampler.resample_chunk(
                 audio_float.reshape(-1, 1), last=False
             )
-            # Convert back to int16
-            processed_audio = np.clip(resampled_float * 32767, -32768, 32767).astype(
-                np.int16
+            # Convert back to int16 and flatten to 1D array
+            processed_audio = (
+                np.clip(resampled_float * 32767, -32768, 32767)
+                .astype(np.int16)
+                .flatten()
             )
 
         return processed_audio
@@ -73,7 +75,9 @@ class AudioProcessor:
             final_chunk = self.soxr_resampler.resample_chunk(
                 np.array([], dtype=np.float32).reshape(-1, 1), last=True
             )
-            return np.clip(final_chunk * 32767, -32768, 32767).astype(np.int16)
+            return (
+                np.clip(final_chunk * 32767, -32768, 32767).astype(np.int16).flatten()
+            )
         return np.array([], dtype=np.int16)
 
     def cleanup(self):

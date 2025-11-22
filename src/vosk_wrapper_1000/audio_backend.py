@@ -82,7 +82,7 @@ class SoundDeviceBackend(AudioBackend):
 
         if self._creation_thread.is_alive():
             # Thread still running, stream creation is slow but may succeed
-            return None  # Indicates timeout, not failure
+            return False  # Indicates timeout, not failure
 
         if stream_error:
             raise stream_error

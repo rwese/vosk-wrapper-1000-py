@@ -32,7 +32,7 @@ class AudioRecorder:
     def write_audio(self, audio_data: np.ndarray):
         """Write audio data to recording file."""
         if self.is_recording and self.file:
-            self.file.write(audio_data.tobytes())
+            self.file.writeframes(audio_data.tobytes())
 
     def stop_recording(self):
         """Stop recording and close file."""

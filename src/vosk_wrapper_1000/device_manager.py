@@ -55,15 +55,16 @@ class DeviceManager:
         except ValueError:
             pass
 
-        if device_id is not None:
+        if device_id is not None and self.devices_cache:
             for device in self.devices_cache:
                 if device["id"] == device_id:
                     return device
 
         # If not found by ID, try by name
-        for device in self.devices_cache:
-            if device_arg.lower() in device["name"].lower():
-                return device
+        if self.devices_cache:
+            for device in self.devices_cache:
+                if device_arg.lower() in device["name"].lower():
+                    return device
         return None
 
     def get_device_by_id(self, device_id: int) -> Optional[Dict]:
@@ -71,9 +72,10 @@ class DeviceManager:
         if self.devices_cache is None:
             self.refresh_devices()
 
-        for device in self.devices_cache:
-            if device["id"] == device_id:
-                return device
+        if self.devices_cache:
+            for device in self.devices_cache:
+                if device["id"] == device_id:
+                    return device
         return None
 
     def validate_device_for_model(
