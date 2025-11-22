@@ -37,9 +37,9 @@ def _detect_linux_audio() -> Dict[str, Any]:
         )
         if result.returncode == 0:
             audio_info["audio_system"] = "pipewire"
-            audio_info[
-                "audio_backend"
-            ] = "pipewire-python (preferred) / sounddevice (fallback)"
+            audio_info["audio_backend"] = (
+                "pipewire-python (preferred) / sounddevice (fallback)"
+            )
 
             # Get PipeWire version
             try:
