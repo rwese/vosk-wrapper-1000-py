@@ -159,6 +159,13 @@ def run_service(args):
 
         if signal_manager.is_listening():
             try:
+                # Debug: Check if we're actually getting audio when listening
+                if frames % 1000 == 0:  # Every ~1000 frames (about 2 seconds)
+                    print(
+                        f"DEBUG: Processing audio while listening - frames: {frames}, audio max: {indata.max():.6f}",
+                        file=sys.stderr,
+                    )
+
                 # Process audio through our pipeline
                 processed_audio = audio_processor.process_audio_chunk(indata)
 
@@ -189,15 +196,38 @@ def run_service(args):
                 try:
                     import sounddevice as sd  # Import here, in child process after fork
 
-                    # Create stream using soxr-optimized callback
-                    stream = sd.InputStream(
-                        samplerate=audio_processor.device_rate,
-                        blocksize=1024,  # Smaller blocksize for better streaming
-                        device=device_id,
-                        dtype="float32",  # Use float32 for better soxr integration
-                        channels=1,
-                        callback=audio_callback,
+                    print(
+                        f"DEBUG: About to create stream - device_id={device_id}, samplerate={audio_processor.device_rate}",
+                        file=sys.stderr,
                     )
+
+                    # Create stream using soxr-optimized callback
+                    try:
+                        stream = sd.InputStream(
+                            samplerate=audio_processor.device_rate,
+                            blocksize=1024,  # Smaller blocksize for better streaming
+                            device=device_id,
+                            dtype="int16",  # Use int16 to match audio processor expectations
+                            channels=1,
+                            callback=audio_callback,
+                        )
+                    except Exception as e:
+                        print(
+                            f"ERROR: Failed to create audio stream: {e}",
+                            file=sys.stderr,
+                        )
+                        sys.exit(1)
+
+                    print(
+                        f"DEBUG: Stream created successfully - {stream}",
+                        file=sys.stderr,
+                    )
+
+                    # Start the stream
+                    stream.start()
+
+                    # Start the stream
+                    stream.start()
                     print(
                         f"Microphone stream started at {audio_processor.device_rate} Hz (using soxr resampling to {audio_processor.model_rate} Hz).",
                         file=sys.stderr,
