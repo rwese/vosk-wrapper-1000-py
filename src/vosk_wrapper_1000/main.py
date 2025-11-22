@@ -49,6 +49,25 @@ def run_service(args):
     # Print audio system information
     print_audio_system_info()
 
+    # Check if any audio devices are available
+    available_devices = device_manager.refresh_devices()
+    if not available_devices:
+        print("Error: No audio input devices found on this system!", file=sys.stderr)
+        print("Please check:", file=sys.stderr)
+        print("  1. Microphone is connected and not muted", file=sys.stderr)
+        print(
+            "  2. Microphone permissions are granted to Terminal/Python",
+            file=sys.stderr,
+        )
+        print("  3. No other application is using the microphone", file=sys.stderr)
+        print("\nTo grant microphone permissions on macOS:", file=sys.stderr)
+        print(
+            "  System Preferences → Security & Privacy → Privacy → Microphone",
+            file=sys.stderr,
+        )
+        print("  Enable Terminal (or your terminal application)", file=sys.stderr)
+        sys.exit(1)
+
     # Resolve device and get info
     device_info = device_manager.get_device_info(args.device)
     if device_info is None:
