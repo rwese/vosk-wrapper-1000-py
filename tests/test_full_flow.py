@@ -10,7 +10,7 @@ import sounddevice as sd
 import vosk
 
 sys.path.insert(0, "src")
-from vosk_simple.model_manager import ModelManager
+from vosk_wrapper_1000.model_manager import ModelManager
 
 
 def main():

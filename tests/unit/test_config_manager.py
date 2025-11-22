@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import yaml
 
-from vosk_simple.config_manager import (
+from vosk_wrapper_1000.config_manager import (
     AudioConfig,
     ConfigManager,
     ModelConfig,

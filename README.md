@@ -1,4 +1,4 @@
-# Vosk Simple Speech Recognition
+# Vosk Wrapper 1000
 
 A simple, robust, and configurable Python-based speech recognition service using [Vosk](https://alphacephei.com/vosk/).
 
@@ -7,11 +7,12 @@ A simple, robust, and configurable Python-based speech recognition service using
 ## 🚀 **What's New in v2.0**
 
 ### **Major Architecture Refactoring**
-- **Modular Design**: Transformed from monolithic 470-line file to 7 focused modules for better maintainability
+- **Modular Design**: Transformed from monolithic 470-line file to 13 focused modules for better maintainability
 - **Enhanced Audio Processing**: Upgraded to soxr HQ streaming resampling with configurable noise filtering
 - **Audio Recording**: Record processed audio to WAV files for review and debugging
 - **Cross-Platform Audio System Detection**: Automatic detection of PipeWire/PulseAudio/ALSA/CoreAudio/WASAPI
 - **Improved Device Management**: Enhanced device compatibility validation and management
+- **Project Renaming**: Renamed from "vosk-simple" to "vosk-wrapper-1000" for better clarity
 
 ### **New Features**
 - **Configurable Noise Reduction**: `--noise-reduction 0.0-1.0` (default: 0.2)
@@ -19,6 +20,7 @@ A simple, robust, and configurable Python-based speech recognition service using
 - **Audio Recording**: `--record-audio filename.wav` records exactly what Vosk receives
 - **Enhanced CLI**: Better help, examples, and error handling
 - **Audio System Info**: Detailed audio backend information for troubleshooting
+- **Modern Build System**: Full uv support with proper Python packaging
 
 ## Installation
 
@@ -136,40 +138,39 @@ If you cloned the repository and want to run without installing:
     uvx --from . vosk-wrapper-1000 stop my-instance
     ```
 
-### Alternative: Traditional Setup
+### Alternative: Development Setup
 
-If you prefer not to use uv/uvx:
+If you prefer to develop locally or don't want to use uvx:
 
 1.  **Install Dependencies**
-    The `run.sh` script handles virtual environment creation and dependency installation automatically.
     ```bash
-    ./run.sh
-    ```
-    *Or manually set up the environment:*
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    pip install -r requirements.txt
+    # Using uv (recommended)
+    uv pip install -e .
+
+    # Or using pip
+    pip install -e .
     ```
 
 2.  **Download a Model**
     ```bash
     # List all available models
-    ./venv/bin/python download_model.py
+    uv run python -m vosk_wrapper_1000.download_model
 
     # Download a specific model
-    ./venv/bin/python download_model.py vosk-model-small-en-us-0.15
+    uv run python -m vosk_wrapper_1000.download_model vosk-model-small-en-us-0.15
 
     # Delete a model
-    ./venv/bin/python download_model.py --delete vosk-model-small-en-us-0.15
+    uv run python -m vosk_wrapper_1000.download_model --delete vosk-model-small-en-us-0.15
     ```
 
-3.  **Start the Daemon**
+3.  **Run the Application**
     ```bash
-    ./run.sh
+    # Run with default settings
+    uv run python -m vosk_wrapper_1000.main daemon
+
     # Or with options:
-    ./run.sh --list-devices
-    ./run.sh --device "Microphone Name"
+    uv run python -m vosk_wrapper_1000.main daemon --list-devices
+    uv run python -m vosk_wrapper_1000.main daemon --device "Microphone Name"
     ```
 
 ## Automatic Sample Rate Handling
@@ -410,16 +411,27 @@ You can also reference the [repository's `hooks/` directory](https://github.com/
 The codebase is now organized into focused modules:
 
 ```
-vosk-wrapper-1000-py/
-├── main.py              # CLI interface and orchestration
-├── audio_processor.py    # soxr resampling + noise filtering
-├── audio_recorder.py     # WAV file recording
-├── audio_system.py       # Cross-platform audio system detection
-├── device_manager.py     # Audio device management
-├── model_manager.py      # Vosk model validation
-├── signal_manager.py     # Daemon signal handling
-├── hook_manager.py       # Hook system execution
-└── pid_manager.py        # Process instance management
+vosk-wrapper-1000/
+├── src/
+│   └── vosk_wrapper_1000/
+│       ├── __init__.py         # Package initialization
+│       ├── main.py             # CLI interface and orchestration
+│       ├── audio_processor.py   # soxr resampling + noise filtering
+│       ├── audio_recorder.py    # WAV file recording
+│       ├── audio_system.py      # Cross-platform audio system detection
+│       ├── device_manager.py    # Audio device management
+│       ├── model_manager.py     # Vosk model validation
+│       ├── signal_manager.py    # Daemon signal handling
+│       ├── hook_manager.py      # Hook system execution
+│       ├── pid_manager.py       # Process instance management
+│       ├── config_manager.py    # Configuration management
+│       ├── download_model.py    # Model downloading utility
+│       ├── xdg_paths.py        # XDG path utilities
+│       └── audio_backend.py    # Audio backend abstraction
+├── tests/                    # Test suite
+├── config/                   # Default configuration
+├── hooks/                    # Example hook scripts
+└── pyproject.toml            # Project configuration
 ```
 
 **Benefits:**
@@ -583,3 +595,72 @@ vosk-wrapper-1000 daemon --disable-noise-filter --record-audio no_filter.wav --f
 htop &  # In one terminal
 vosk-wrapper-1000 daemon --noise-reduction 0.2 --foreground  # In another
 ```
+
+## Development
+
+### Setting Up Development Environment
+
+1. **Clone the repository**
+    ```bash
+    git clone https://github.com/rwese/vosk-wrapper-1000-py
+    cd vosk-wrapper-1000-py
+    ```
+
+2. **Install in development mode**
+    ```bash
+    # Using uv (recommended)
+    uv pip install -e .
+
+    # Or using pip
+    pip install -e .
+    ```
+
+3. **Run tests**
+    ```bash
+    # Run all tests
+    uv run python -m pytest
+
+    # Run unit tests only
+    uv run python -m pytest tests/unit/
+
+    # Run integration tests only
+    uv run python -m pytest tests/integration/
+
+    # Run with coverage
+    uv run python -m pytest --cov=src/vosk_wrapper_1000
+    ```
+
+4. **Code quality tools**
+    ```bash
+    # Format code
+    uv run black src/ tests/
+
+    # Sort imports
+    uv run isort src/ tests/
+
+    # Lint code
+    uv run ruff check src/ tests/
+
+    # Type checking
+    uv run mypy src/
+    ```
+
+### Project Structure
+
+The project follows a clean, modular architecture:
+
+- **`src/vosk_wrapper_1000/`**: Main package with all core functionality
+- **`tests/`**: Comprehensive test suite (unit and integration tests)
+- **`config/`**: Default configuration files
+- **`hooks/`**: Example hook scripts
+- **`pyproject.toml`**: Modern Python project configuration
+
+### Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature-name`
+3. Make your changes and ensure tests pass
+4. Run code quality tools and fix any issues
+5. Submit a pull request
+
+For detailed development guidelines, see [AGENTS.md](AGENTS.md).

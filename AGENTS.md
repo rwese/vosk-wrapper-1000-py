@@ -38,12 +38,12 @@ python tests/test_signals.py
 
 ## Directory Structure
 
-The vosk-simple project follows a clean, organized structure:
+The vosk-wrapper-1000 project follows a clean, organized structure:
 
 ```
-vosk-simple/
+vosk-wrapper-1000/
 ├── src/                    # Source code
-│   └── vosk_simple/       # Main package
+│   └── vosk_wrapper_1000/       # Main package
 │       ├── __init__.py     # Package initialization
 │       ├── main.py         # Main entry point
 │       ├── audio_*.py      # Audio processing modules
@@ -90,11 +90,11 @@ vosk-simple/
 The project uses a hierarchical configuration system:
 
 1. **Default values** in `config/default.yaml`
-2. **User config** in `~/.config/vosk-simple/config.yaml`
+2. **User config** in `~/.config/vosk-wrapper-1000/config.yaml`
 3. **Environment variables** with `VOSK_` prefix
 4. **Command line arguments** (highest priority)
 
-Configuration is managed by `src/vosk_simple/config_manager.py` and supports:
+Configuration is managed by `src/vosk_wrapper_1000/config_manager.py` and supports:
 - YAML configuration files
 - Environment variable overrides
 - Type validation and defaults

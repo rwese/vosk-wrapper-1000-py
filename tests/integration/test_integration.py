@@ -9,7 +9,7 @@ import pytest
 # Add project root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from vosk_simple.main import run_service
+from vosk_wrapper_1000.main import run_service
 
 
 class MockArgs:
@@ -54,14 +54,14 @@ def mock_sounddevice():
 
 @pytest.fixture
 def mock_managers():
-    with patch("vosk_simple.main.SignalManager") as mock_sm_cls, patch(
-        "vosk_simple.main.ModelManager"
-    ) as mock_mm_cls, patch("vosk_simple.main.DeviceManager") as mock_dm_cls, patch(
-        "vosk_simple.main.HookManager"
+    with patch("vosk_wrapper_1000.main.SignalManager") as mock_sm_cls, patch(
+        "vosk_wrapper_1000.main.ModelManager"
+    ) as mock_mm_cls, patch("vosk_wrapper_1000.main.DeviceManager") as mock_dm_cls, patch(
+        "vosk_wrapper_1000.main.HookManager"
     ) as mock_hm_cls, patch(
-        "vosk_simple.main.write_pid"
+        "vosk_wrapper_1000.main.write_pid"
     ), patch(
-        "vosk_simple.main.remove_pid"
+        "vosk_wrapper_1000.main.remove_pid"
     ):
         # Setup SignalManager
         mock_sm = mock_sm_cls.return_value

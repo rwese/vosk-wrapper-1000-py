@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "vosk-simple"
+name = "vosk-wrapper-1000"
 version = "0.1.0"
 description = "A simple, robust, and configurable Python-based speech recognition service using Vosk"
 readme = "README.md"
@@ -21,13 +21,16 @@ dependencies = [
 ]
 
 [project.scripts]
-vosk-simple = "vosk_simple.main:main"
-vosk-download-model = "vosk_simple.download_model:main"
+vosk-wrapper-1000 = "vosk_wrapper_1000.main:main"
+vosk-download-model-1000 = "vosk_wrapper_1000.download_model:main"
 
 [tool.hatch.build.targets.wheel]
 only-include = [
-    "src/vosk_simple",
+    "src/vosk_wrapper_1000",
 ]
+
+[tool.hatch.build]
+sources = ["src"]
 
 [project.optional-dependencies]
 pipewire = ["pipewire-python"]
@@ -36,11 +39,13 @@ pipewire = ["pipewire-python"]
 dev = [
     "pre-commit>=3.5.0",
     "pytest>=8.3.5",
-    "pytest-cov",
+    "pytest-cov>=4.0.0",
     "ruff>=0.1.0",
     "black>=23.0.0",
     "mypy>=1.0.0",
     "isort>=5.12.0",
+    "types-PyYAML>=6.0.0",
+    "types-requests>=2.31.0",
 ]
 
 [tool.pytest.ini_options]
@@ -63,6 +68,8 @@ markers = [
 [tool.ruff]
 line-length = 88
 target-version = "py38"
+
+[tool.ruff.lint]
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
@@ -71,15 +78,21 @@ select = [
     "B",  # flake8-bugbear
     "C4", # flake8-comprehensions
     "UP", # pyupgrade
+    "RUF", # Ruff-specific rules
 ]
 ignore = [
     "E501",  # line too long, handled by black
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
+    "RUF012", # mutable class default
 ]
 
-[tool.ruff.per-file-ignores]
-"tests/*" = ["E501", "F841"]
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "E501",  # line too long in tests
+    "F841",  # unused variable in tests
+    "B007",  # unused loop control variable
+]
 
 [tool.black]
 line-length = 88
@@ -103,7 +116,7 @@ extend-exclude = '''
 profile = "black"
 multi_line_output = 3
 line_length = 88
-known_first_party = ["vosk_simple"]
+known_first_party = ["vosk_wrapper_1000"]
 
 [tool.mypy]
 python_version = "3.8"
@@ -119,6 +132,8 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
+show_error_codes = true
+show_column_numbers = true
 
 [[tool.mypy.overrides]]
 module = [
