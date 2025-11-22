@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Simple audio capture test script to validate audio backend without Vosk."""
 
-import sys
-import time
-import signal
 import argparse
 import queue
+import signal
+import sys
+import time
 
 
 def main():

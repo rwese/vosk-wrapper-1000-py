@@ -11,18 +11,13 @@ import time
 # Import local modules
 from .audio_processor import AudioProcessor
 from .audio_recorder import AudioRecorder
-from .signal_manager import SignalManager
-from .model_manager import ModelManager
+from .audio_system import print_audio_system_info
 from .device_manager import DeviceManager
 from .hook_manager import HookManager
+from .model_manager import ModelManager
+from .pid_manager import list_instances, remove_pid, send_signal_to_instance, write_pid
+from .signal_manager import SignalManager
 from .xdg_paths import get_hooks_dir
-from .audio_system import print_audio_system_info
-from .pid_manager import (
-    write_pid,
-    remove_pid,
-    list_instances,
-    send_signal_to_instance,
-)
 
 
 def run_service(args):

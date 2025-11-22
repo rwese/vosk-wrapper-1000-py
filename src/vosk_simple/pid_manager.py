@@ -2,7 +2,8 @@
 
 import os
 import sys
-from .xdg_paths import get_xdg_cache_home, APP_NAME
+
+from .xdg_paths import APP_NAME, get_xdg_cache_home
 
 
 def get_pid_dir():

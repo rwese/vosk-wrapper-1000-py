@@ -1,9 +1,10 @@
 """Audio processing utilities for vosk-wrapper-1000."""
 
-import numpy as np
-import noisereduce as nr
-import soxr
 from typing import Optional
+
+import noisereduce as nr
+import numpy as np
+import soxr
 
 
 class AudioProcessor:
@@ -27,7 +28,7 @@ class AudioProcessor:
         # Initialize soxr resampler if needed
         if device_rate != model_rate:
             self.soxr_resampler = soxr.ResampleStream(
-                rate_in=device_rate, rate_out=model_rate, num_channels=1, quality="HQ"
+                in_rate=device_rate, out_rate=model_rate, num_channels=1, quality="HQ"
             )
 
     def process_audio_chunk(self, audio_data: np.ndarray) -> np.ndarray:
@@ -35,7 +36,7 @@ class AudioProcessor:
         processed_audio = audio_data.copy()
 
         # Apply noise filtering if enabled
-        if self.noise_filter_enabled:
+        if self.noise_filter_enabled and len(audio_data) > 1024:
             # Convert to float for noise reduction
             audio_float = processed_audio.astype(np.float32) / 32768.0
             # Apply configurable noise reduction

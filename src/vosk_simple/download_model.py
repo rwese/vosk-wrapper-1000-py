@@ -1,9 +1,10 @@
 import argparse
 import os
-import sys
-import requests
-import zipfile
 import shutil
+import sys
+import zipfile
+
+import requests
 from tqdm import tqdm
 
 from .xdg_paths import get_models_dir

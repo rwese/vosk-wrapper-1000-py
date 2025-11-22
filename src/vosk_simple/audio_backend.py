@@ -1,8 +1,9 @@
 """Audio backend abstraction layer for cross-platform support."""
+
 import platform
 import threading
 from abc import ABC, abstractmethod
-from typing import Optional, Callable
+from typing import Callable, Optional
 
 
 class AudioBackend(ABC):
@@ -111,10 +112,10 @@ class PipeWireBackend(AudioBackend):
             self.controller = None
             self._recording_thread = None
             self._stop_recording = threading.Event()
-        except ImportError:
+        except ImportError as err:
             raise ImportError(
                 "pipewire-python is not installed. Install with: pip install pipewire-python"
-            )
+            ) from err
 
     def create_stream(
         self,

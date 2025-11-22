@@ -2,9 +2,9 @@
 Unit tests for XDG paths management.
 """
 
-import unittest
-import tempfile
 import os
+import tempfile
+import unittest
 from pathlib import Path
 from unittest.mock import patch
 
@@ -24,46 +24,39 @@ class TestXDGPaths(unittest.TestCase):
 
         shutil.rmtree(self.temp_dir)
 
-    @patch.dict(
-        os.environ,
-        {
-            "XDG_DATA_HOME": "",
-            "XDG_CONFIG_HOME": "",
-            "XDG_CACHE_HOME": "",
-            "HOME": "/tmp/test_home",
-        },
-    )
-    def test_default_paths(self):
-        """Test default XDG paths when environment variables are not set."""
+    def test_xdg_paths_creation(self):
+        """Test XDGPaths object creation."""
         xdg = XDGPaths()
+        self.assertEqual(xdg.app_name, "vosk-wrapper-1000")
 
-        # Should use HOME/.local/share, etc.
-        expected_data = Path("/tmp/test_home/.local/share")
-        expected_config = Path("/tmp/test_home/.config")
-        expected_cache = Path("/tmp/test_home/.cache")
+        custom_xdg = XDGPaths("custom-app")
+        self.assertEqual(custom_xdg.app_name, "custom-app")
 
-        self.assertEqual(xdg.get_data_dir(), expected_data)
-        self.assertEqual(xdg.get_config_dir(), expected_config)
-        self.assertEqual(xdg.get_cache_dir(), expected_cache)
+    def test_directory_creation(self):
+        """Test directory creation functionality."""
+        with patch.dict(os.environ, {"HOME": self.temp_dir}):
+            xdg = XDGPaths()
 
-    @patch.dict(
-        os.environ,
-        {
-            "XDG_DATA_HOME": "/custom/data",
-            "XDG_CONFIG_HOME": "/custom/config",
-            "XDG_CACHE_HOME": "/custom/cache",
-        },
-    )
-    def test_environment_override_paths(self):
-        """Test XDG paths when environment variables are set."""
-        xdg = XDGPaths()
+            # Get paths - they should be created
+            data_dir = xdg.get_data_dir()
+            config_dir = xdg.get_config_dir()
+            cache_dir = xdg.get_cache_dir()
 
-        self.assertEqual(xdg.get_data_dir(), Path("/custom/data"))
-        self.assertEqual(xdg.get_config_dir(), Path("/custom/config"))
-        self.assertEqual(xdg.get_cache_dir(), Path("/custom/cache"))
+            # All should exist and be directories
+            self.assertTrue(data_dir.exists())
+            self.assertTrue(data_dir.is_dir())
+            self.assertTrue(config_dir.exists())
+            self.assertTrue(config_dir.is_dir())
+            self.assertTrue(cache_dir.exists())
+            self.assertTrue(cache_dir.is_dir())
 
-    def test_vosk_specific_paths(self):
-        """Test Vosk-specific paths."""
+            # Should contain app name
+            self.assertIn("vosk-wrapper-1000", str(data_dir))
+            self.assertIn("vosk-wrapper-1000", str(config_dir))
+            self.assertIn("vosk-wrapper-1000", str(cache_dir))
+
+    def test_subdirectory_paths(self):
+        """Test path generation with subdirectories."""
         with patch.dict(os.environ, {"HOME": self.temp_dir}):
             xdg = XDGPaths()
 
@@ -73,41 +66,62 @@ class TestXDGPaths(unittest.TestCase):
                 Path(self.temp_dir) / ".local/share/vosk-wrapper-1000/models"
             )
             self.assertEqual(model_path, expected_model)
+            self.assertTrue(model_path.exists())
 
-            # Test config path
-            config_path = xdg.get_config_dir("vosk-simple")
-            expected_config = Path(self.temp_dir) / ".config/vosk-simple"
-            self.assertEqual(config_path, expected_config)
+            # Test hooks path
+            hooks_path = xdg.get_hooks_dir()
+            expected_hooks = Path(self.temp_dir) / ".config/vosk-wrapper-1000/hooks"
+            self.assertEqual(hooks_path, expected_hooks)
+            self.assertTrue(hooks_path.exists())
 
-            # Test cache path
-            cache_path = xdg.get_cache_dir("vosk-wrapper-1000/pids")
-            expected_cache = Path(self.temp_dir) / ".cache/vosk-wrapper-1000/pids"
-            self.assertEqual(cache_path, expected_cache)
+            # Test custom subpath
+            custom_path = xdg.get_data_dir("test/subdir")
+            expected_custom = (
+                Path(self.temp_dir) / ".local/share/vosk-wrapper-1000/test/subdir"
+            )
+            self.assertEqual(custom_path, expected_custom)
+            self.assertTrue(custom_path.exists())
 
-    def test_ensure_directory_creation(self):
-        """Test directory creation functionality."""
+    def test_custom_app_name_paths(self):
+        """Test XDGPaths with custom app name."""
         with patch.dict(os.environ, {"HOME": self.temp_dir}):
+            xdg = XDGPaths("custom-app")
+
+            data_dir = xdg.get_data_dir()
+            expected = Path(self.temp_dir) / ".local/share/custom-app"
+            self.assertEqual(data_dir, expected)
+            self.assertTrue(data_dir.exists())
+
+    def test_environment_variables(self):
+        """Test that environment variables are respected."""
+        custom_data = Path(self.temp_dir) / "custom_data"
+        custom_config = Path(self.temp_dir) / "custom_config"
+        custom_cache = Path(self.temp_dir) / "custom_cache"
+
+        # Create parent directories first
+        custom_data.mkdir(parents=True, exist_ok=True)
+        custom_config.mkdir(parents=True, exist_ok=True)
+        custom_cache.mkdir(parents=True, exist_ok=True)
+
+        with patch.dict(
+            os.environ,
+            {
+                "XDG_DATA_HOME": str(custom_data),
+                "XDG_CONFIG_HOME": str(custom_config),
+                "XDG_CACHE_HOME": str(custom_cache),
+                "HOME": self.temp_dir,
+            },
+        ):
             xdg = XDGPaths()
 
-            # Get a path that doesn't exist
-            test_path = xdg.get_data_dir("vosk-simple/test")
+            data_dir = xdg.get_data_dir()
+            config_dir = xdg.get_config_dir()
+            cache_dir = xdg.get_cache_dir()
 
-            # Directory should be created
-            self.assertTrue(test_path.exists())
-            self.assertTrue(test_path.is_dir())
-
-    def test_path_with_subdirectory(self):
-        """Test path generation with subdirectories."""
-        with patch.dict(os.environ, {"HOME": self.temp_dir}):
-            xdg = XDGPaths()
-
-            # Test with subdirectory
-            path = xdg.get_data_dir("vosk-wrapper-1000/models")
-            expected = Path(self.temp_dir) / ".local/share/vosk-wrapper-1000/models"
-            self.assertEqual(path, expected)
-
-            # Directory should be created
-            self.assertTrue(path.exists())
+            # Should use custom directories
+            self.assertEqual(data_dir, custom_data / "vosk-wrapper-1000")
+            self.assertEqual(config_dir, custom_config / "vosk-wrapper-1000")
+            self.assertEqual(cache_dir, custom_cache / "vosk-wrapper-1000")
 
 
 if __name__ == "__main__":

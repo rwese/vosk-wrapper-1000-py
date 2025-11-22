@@ -5,19 +5,19 @@
 audio:
   # Default device name (leave empty for system default)
   device: ""
-  
+
   # Audio block size for recording
   blocksize: 8000
-  
+
   # Audio sample rate (will be auto-detected if not specified)
   samplerate: null
-  
+
   # Number of audio channels
   channels: 1
-  
+
   # Audio data type
   dtype: "int16"
-  
+
   # Enable noise reduction
   noise_reduction: true
 
@@ -25,10 +25,10 @@ audio:
 model:
   # Default model path (will use XDG data directory if not specified)
   path: null
-  
+
   # Default model name for downloading
   default_name: "vosk-model-small-en-us-0.15"
-  
+
   # Auto-download model if not found
   auto_download: false
 
@@ -36,13 +36,13 @@ model:
 recognition:
   # Enable word-level timestamps
   words: false
-  
+
   # Enable partial results
   partial_words: false
-  
+
   # Grammar for restricted vocabulary (leave empty for unrestricted)
   grammar: null
-  
+
   # Maximum alternatives to return
   max_alternatives: 1
 
@@ -50,10 +50,10 @@ recognition:
 hooks:
   # Enable hook execution
   enabled: true
-  
+
   # Hook directory path (will use XDG config directory if not specified)
   directory: null
-  
+
   # Timeout for hook execution (seconds)
   timeout: 30
 
@@ -61,10 +61,10 @@ hooks:
 logging:
   # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
   level: "INFO"
-  
+
   # Log file path (leave empty for stderr only)
   file: null
-  
+
   # Log format
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
@@ -72,10 +72,10 @@ logging:
 performance:
   # Audio queue size
   queue_size: 100
-  
+
   # Main loop sleep time (seconds)
   sleep_time: 0.1
-  
+
   # Process audio in separate thread
   threaded: true
 
@@ -83,9 +83,9 @@ performance:
 service:
   # Default instance name
   instance_name: "default"
-  
+
   # PID file directory (will use XDG cache directory if not specified)
   pid_directory: null
-  
+
   # Graceful shutdown timeout (seconds)
   shutdown_timeout: 10
