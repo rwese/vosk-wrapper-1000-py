@@ -135,9 +135,8 @@ def get_default_model_path():
 
     Priority:
     1. User config file (~/.config/vosk-wrapper-1000/config.yaml)
-    2. Legacy 'model' symlink (backwards compatibility)
-    3. First model found in models directory
-    4. Default fallback path
+    2. First model found in models directory
+    3. Default fallback path
     """
     models_dir = get_models_dir()
 
@@ -147,12 +146,6 @@ def get_default_model_path():
         config_model_path = Path(user_config["model"]["path"])
         if config_model_path.exists():
             return config_model_path
-
-    # Check if there's a 'model' symlink or directory (for backwards compatibility)
-    if models_dir.parent.parent.parent.exists():
-        legacy_model = models_dir.parent.parent.parent / "model"
-        if legacy_model.exists():
-            return legacy_model
 
     # Look for any model in the XDG models directory
     if models_dir.exists():
