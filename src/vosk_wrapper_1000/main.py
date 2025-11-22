@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import logging
 import os
 import queue
 import signal
@@ -18,6 +19,33 @@ from .model_manager import ModelManager
 from .pid_manager import list_instances, remove_pid, send_signal_to_instance, write_pid
 from .signal_manager import SignalManager
 from .xdg_paths import get_hooks_dir
+
+# Set up module logger
+logger = logging.getLogger(__name__)
+
+
+def setup_logging(log_level=None):
+    """Configure logging for the application.
+
+    Args:
+        log_level: Log level string (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+                   If None, checks VOSK_LOG_LEVEL env var, defaults to WARNING
+    """
+    # Determine log level: CLI arg > env var > default
+    if log_level is None:
+        log_level = os.environ.get("VOSK_LOG_LEVEL", "WARNING")
+
+    # Convert string to logging constant
+    numeric_level = getattr(logging, log_level.upper(), logging.WARNING)
+
+    # Configure logging
+    logging.basicConfig(
+        level=numeric_level,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    logger.info(f"Logging configured with level: {log_level}")
 
 
 def run_service(args):
@@ -52,20 +80,14 @@ def run_service(args):
     # Check if any audio devices are available
     available_devices = device_manager.refresh_devices()
     if not available_devices:
-        print("Error: No audio input devices found on this system!", file=sys.stderr)
-        print("Please check:", file=sys.stderr)
-        print("  1. Microphone is connected and not muted", file=sys.stderr)
-        print(
-            "  2. Microphone permissions are granted to Terminal/Python",
-            file=sys.stderr,
-        )
-        print("  3. No other application is using the microphone", file=sys.stderr)
-        print("\nTo grant microphone permissions on macOS:", file=sys.stderr)
-        print(
-            "  System Preferences → Security & Privacy → Privacy → Microphone",
-            file=sys.stderr,
-        )
-        print("  Enable Terminal (or your terminal application)", file=sys.stderr)
+        logger.error("No audio input devices found on this system!")
+        logger.error("Please check:")
+        logger.error("  1. Microphone is connected and not muted")
+        logger.error("  2. Microphone permissions are granted to Terminal/Python")
+        logger.error("  3. No other application is using the microphone")
+        logger.error("\nTo grant microphone permissions on macOS:")
+        logger.error("  System Preferences → Security & Privacy → Privacy → Microphone")
+        logger.error("  Enable Terminal (or your terminal application)")
         sys.exit(1)
 
     # Resolve device and get info
@@ -83,12 +105,12 @@ def run_service(args):
             device_id, model_manager.get_model_sample_rate(args.model)
         )
         if not is_compatible:
-            print(f"Error: {compatibility_msg}", file=sys.stderr)
+            logger.error(f"Device compatibility error: {compatibility_msg}")
             sys.exit(1)
         else:
-            print(f"Device compatibility: {compatibility_msg}", file=sys.stderr)
+            logger.info(f"Device compatibility: {compatibility_msg}")
     else:
-        print("Using default audio device", file=sys.stderr)
+        logger.info("Using default audio device")
 
     # Get model sample rate
     model_sample_rate = model_manager.get_model_sample_rate(args.model)
@@ -136,15 +158,12 @@ def run_service(args):
     # Setup signal handlers
     signal_manager._setup_handlers()
 
-    print(f"Service started. PID: {os.getpid()}", file=sys.stderr)
+    logger.info(f"Service started. PID: {os.getpid()}")
     if device_info is not None:
-        print(
-            f"Using audio device: {device_info['name']} (ID: {device_id})",
-            file=sys.stderr,
-        )
+        logger.info(f"Using audio device: {device_info['name']} (ID: {device_id})")
     else:
-        print("Using default audio device", file=sys.stderr)
-    print("Send SIGUSR1 to start listening, SIGUSR2 to stop.", file=sys.stderr)
+        logger.info("Using default audio device")
+    logger.info("Send SIGUSR1 to start listening, SIGUSR2 to stop.")
 
     # Audio Stream Management
     stream = None
@@ -155,8 +174,7 @@ def run_service(args):
     def audio_callback(indata, frames, time, status):
         """Audio callback for sounddevice."""
         if status:
-            print(status, file=sys.stderr)
-            sys.stderr.flush()
+            logger.warning(f"Audio callback status: {status}")
 
         if signal_manager.is_listening():
             try:
@@ -183,19 +201,16 @@ def run_service(args):
                 # Drop audio frames if queue is full (prevents overflow)
                 pass
             except Exception as e:
-                print(f"Error in audio callback: {e}", file=sys.stderr)
-                sys.stderr.flush()
+                logger.error(f"Error in audio callback: {e}")
 
     try:
         while signal_manager.is_running():
             # Check if we need to start listening
             if signal_manager.is_listening() and stream is None:
-                print("Starting microphone stream...", file=sys.stderr)
-                print(
-                    f"DEBUG: device_rate={audio_processor.device_rate}, device_id={device_id}",
-                    file=sys.stderr,
+                logger.info("Starting microphone stream...")
+                logger.debug(
+                    f"device_rate={audio_processor.device_rate}, device_id={device_id}"
                 )
-                sys.stderr.flush()
 
                 try:
                     import sounddevice as sd  # Import here, in child process after fork
@@ -525,6 +540,13 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
         type=str,
         help="Record processed audio to WAV file for review",
     )
+    daemon_parser.add_argument(
+        "--log-level",
+        type=str,
+        default=None,
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Set logging level (default: WARNING, can also be set via VOSK_LOG_LEVEL env var)",
+    )
 
     # Control commands
     start_parser = subparsers.add_parser(
@@ -549,6 +571,10 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
     subparsers.add_parser("list", help="List all running instances")
 
     args = parser.parse_args()
+
+    # Setup logging based on args or environment
+    log_level = getattr(args, "log_level", None)
+    setup_logging(log_level)
 
     if args.command == "daemon":
         run_service(args)
