@@ -2,19 +2,18 @@
 Unit tests for configuration management.
 """
 
-import unittest
-import tempfile
 import os
-import yaml
+import tempfile
+import unittest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
+import yaml
 
 from vosk_simple.config_manager import (
-    ConfigManager,
-    Config,
     AudioConfig,
+    ConfigManager,
     ModelConfig,
-    RecognitionConfig,
     load_config,
 )
 
@@ -119,7 +118,7 @@ class TestConfigManager(unittest.TestCase):
         manager.save_config(config, save_file)
 
         # Load and verify
-        with open(save_file, "r") as f:
+        with open(save_file) as f:
             saved_data = yaml.safe_load(f)
 
         self.assertEqual(saved_data["audio"]["device"], "saved_device")

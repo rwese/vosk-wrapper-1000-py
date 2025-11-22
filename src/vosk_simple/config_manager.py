@@ -6,10 +6,12 @@ YAML configuration files and environment variable overrides.
 """
 
 import os
-import yaml
-from typing import Any, Dict, Optional, Union
-from pathlib import Path
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, Optional, Union
+
+import yaml
+
 from .xdg_paths import XDGPaths
 
 
@@ -157,9 +159,9 @@ class ConfigManager:
         # Load from file if available
         if self.config_file:
             try:
-                with open(self.config_file, "r") as f:
+                with open(self.config_file) as f:
                     config_data = yaml.safe_load(f) or {}
-            except (yaml.YAMLError, IOError) as e:
+            except (OSError, yaml.YAMLError) as e:
                 print(f"Warning: Failed to load config file {self.config_file}: {e}")
 
         # Create config object

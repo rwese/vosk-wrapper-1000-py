@@ -3,7 +3,7 @@
 # This is an example LINE hook.
 # It is triggered for every line of text transcribed by the model.
 
-# Input: 
+# Input:
 #   Argument 1: The transcribed text line.
 #   Stdin: The full transcript context.
 # Output: Standard Output (stdout) and Standard Error (stderr) are logged.
@@ -18,7 +18,7 @@ text="$1"
 
 if [ -n "$text" ]; then
     echo "  [Line Hook] Transcribed: $text" >&2
-    
+
     # Example: Check for a keyword to stop listening
     if [[ "$text" == *"stop listening"* ]]; then
         echo "  [Line Hook] 'stop listening' command detected." >&2

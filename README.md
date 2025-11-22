@@ -15,7 +15,7 @@ A simple, robust, and configurable Python-based speech recognition service using
 
 ### **New Features**
 - **Configurable Noise Reduction**: `--noise-reduction 0.0-1.0` (default: 0.2)
-- **Noise Type Selection**: `--stationary-noise` vs `--non-stationary-noise` 
+- **Noise Type Selection**: `--stationary-noise` vs `--non-stationary-noise`
 - **Audio Recording**: `--record-audio filename.wav` records exactly what Vosk receives
 - **Enhanced CLI**: Better help, examples, and error handling
 - **Audio System Info**: Detailed audio backend information for troubleshooting
@@ -480,7 +480,7 @@ This should no longer occur as application automatically uses your device's nati
    ```bash
    # Try stronger noise reduction
    vosk-wrapper-1000 daemon --noise-reduction 0.4
-   
+
    # Or try non-stationary noise for variable environments
    vosk-wrapper-1000 daemon --non-stationary-noise
    ```

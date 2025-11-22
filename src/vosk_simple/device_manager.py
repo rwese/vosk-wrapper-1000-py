@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Device management utilities for vosk-wrapper-1000."""
 
-import sounddevice as sd
-from typing import List, Dict, Optional, Tuple
 import sys
+from typing import Dict, List, Optional, Tuple
+
+import sounddevice as sd
+
 from .audio_system import validate_device_compatibility
 
 

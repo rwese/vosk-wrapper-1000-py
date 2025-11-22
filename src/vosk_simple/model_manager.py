@@ -1,7 +1,8 @@
 """Vosk model management utilities."""
 
 import os
-from .xdg_paths import get_models_dir, get_default_model_path
+
+from .xdg_paths import get_default_model_path, get_models_dir
 
 
 class ModelManager:
@@ -16,13 +17,13 @@ class ModelManager:
         mfcc_conf = os.path.join(model_path, "conf", "mfcc.conf")
         if os.path.exists(mfcc_conf):
             try:
-                with open(mfcc_conf, "r") as f:
+                with open(mfcc_conf) as f:
                     for line in f:
                         if "--sample-frequency" in line:
                             # Extract: --sample-frequency=16000
                             rate = int(line.split("=")[1].strip())
                             return rate
-            except (IOError, ValueError, IndexError):
+            except (OSError, ValueError, IndexError):
                 pass
         # Default to 16000 if not found
         return 16000
@@ -74,7 +75,7 @@ class ModelManager:
             # Calculate approximate size
             try:
                 total_size = 0
-                for root, dirs, files in os.walk(model_path):
+                for root, _dirs, files in os.walk(model_path):
                     for file in files:
                         file_path = os.path.join(root, file)
                         if os.path.exists(file_path):

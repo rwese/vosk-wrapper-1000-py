@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Test full flow like main.py."""
 
+import os
 import signal
 import sys
 import time
+
 import sounddevice as sd
 import vosk
-import os
 
 sys.path.insert(0, "src")
 from vosk_simple.model_manager import ModelManager
