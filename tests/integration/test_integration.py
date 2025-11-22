@@ -9,7 +9,7 @@ import pytest
 # Add project root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from vosk_wrapper_1000.main import run_service  # noqa: E402
+from vosk_wrapper_1000.main import run_service
 
 
 class MockArgs:

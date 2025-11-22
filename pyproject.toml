@@ -92,6 +92,10 @@ ignore = [
     "E501",  # line too long in tests
     "F841",  # unused variable in tests
     "B007",  # unused loop control variable
+    "E402",  # module level import not at top of file
+]
+"test_*.py" = [
+    "E402",  # module level import not at top of file
 ]
 
 [tool.black]

@@ -13,13 +13,13 @@ import time
 # Add src to path so we can import the modules
 sys.path.insert(0, "src")
 
-from vosk_wrapper_1000.audio_processor import AudioProcessor  # noqa: E402
-from vosk_wrapper_1000.audio_recorder import AudioRecorder  # noqa: E402
-from vosk_wrapper_1000.device_manager import DeviceManager  # noqa: E402
-from vosk_wrapper_1000.hook_manager import HookManager  # noqa: E402
-from vosk_wrapper_1000.model_manager import ModelManager  # noqa: E402
-from vosk_wrapper_1000.pid_manager import remove_pid  # noqa: E402
-from vosk_wrapper_1000.signal_manager import SignalManager  # noqa: E402
+from vosk_wrapper_1000.audio_processor import AudioProcessor
+from vosk_wrapper_1000.audio_recorder import AudioRecorder
+from vosk_wrapper_1000.device_manager import DeviceManager
+from vosk_wrapper_1000.hook_manager import HookManager
+from vosk_wrapper_1000.model_manager import ModelManager
+from vosk_wrapper_1000.pid_manager import remove_pid
+from vosk_wrapper_1000.signal_manager import SignalManager
 
 
 class MockArgs:
