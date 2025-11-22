@@ -1,6 +1,7 @@
 """Vosk model management utilities."""
 
 import os
+from typing import List, Tuple
 
 from .xdg_paths import get_default_model_path, get_models_dir
 
@@ -28,7 +29,7 @@ class ModelManager:
         # Default to 16000 if not found
         return 16000
 
-    def validate_model(self, model_path: str) -> tuple[bool, str]:
+    def validate_model(self, model_path: str) -> Tuple[bool, str]:
         """Validate that model exists and is accessible."""
         if not os.path.exists(model_path):
             return False, f"Model path does not exist: {model_path}"
@@ -49,7 +50,7 @@ class ModelManager:
 
         return True, "Model validation passed"
 
-    def list_available_models(self) -> list[str]:
+    def list_available_models(self) -> List[str]:
         """List all available models in the models directory."""
         models = []
         if os.path.exists(self.models_dir):

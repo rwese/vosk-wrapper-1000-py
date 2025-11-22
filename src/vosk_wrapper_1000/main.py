@@ -148,8 +148,9 @@ def run_service(args):
 
     # Audio Stream Management
     stream = None
-    audio_queue = queue.Queue()
+    audio_queue: queue.Queue[bytes] = queue.Queue()
     transcript_buffer = []
+    callback_counter = [0]  # Use list to allow modification in nested function
 
     def audio_callback(indata, frames, time, status):
         """Audio callback for sounddevice."""
@@ -160,9 +161,12 @@ def run_service(args):
         if signal_manager.is_listening():
             try:
                 # Debug: Check if we're actually getting audio when listening
-                if frames % 1000 == 0:  # Every ~1000 frames (about 2 seconds)
+                callback_counter[0] += 1
+                if (
+                    callback_counter[0] % 100 == 0
+                ):  # Every ~100 callbacks (about 2 seconds at 1024 blocksize)
                     print(
-                        f"DEBUG: Processing audio while listening - frames: {frames}, audio max: {indata.max():.6f}",
+                        f"DEBUG: Processing audio while listening - callback #{callback_counter[0]}, frames: {frames}, audio max: {indata.max():.6f}",
                         file=sys.stderr,
                     )
 
@@ -225,9 +229,6 @@ def run_service(args):
 
                     # Start the stream
                     stream.start()
-
-                    # Start the stream
-                    stream.start()
                     print(
                         f"Microphone stream started at {audio_processor.device_rate} Hz (using soxr resampling to {audio_processor.model_rate} Hz).",
                         file=sys.stderr,
@@ -261,6 +262,14 @@ def run_service(args):
                 stream = None
                 print("Microphone stream stopped.", file=sys.stderr)
 
+                # Get final result from recognizer (any pending recognition)
+                final_result = json.loads(rec.FinalResult())
+                final_text = final_result.get("text", "")
+                if final_text:
+                    print(final_text)  # Output final recognition
+                    sys.stdout.flush()
+                    transcript_buffer.append(final_text)
+
                 # Process accumulated transcript
                 full_transcript = "\n".join(transcript_buffer)
 
@@ -280,7 +289,26 @@ def run_service(args):
             if signal_manager.is_listening() and stream is not None:
                 try:
                     data = audio_queue.get(timeout=0.1)
-                    if rec.AcceptWaveform(data):
+
+                    # Debug: Log queue processing
+                    if callback_counter[0] % 100 == 1:  # Log occasionally
+                        print(
+                            f"DEBUG: Processing queue - data length: {len(data)} bytes, type: {type(data)}",
+                            file=sys.stderr,
+                        )
+                        sys.stderr.flush()
+
+                    accepted = rec.AcceptWaveform(data)
+
+                    # Debug: Check if Vosk is accepting the data
+                    if callback_counter[0] % 100 == 1:
+                        print(
+                            f"DEBUG: Vosk AcceptWaveform returned: {accepted}",
+                            file=sys.stderr,
+                        )
+                        sys.stderr.flush()
+
+                    if accepted:
                         result = json.loads(rec.Result())
                         text = result.get("text", "")
                         if text:

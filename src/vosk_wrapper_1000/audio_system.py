@@ -3,13 +3,13 @@
 import platform
 import subprocess
 import sys
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 
-def detect_audio_system() -> Dict[str, str]:
+def detect_audio_system() -> Dict[str, Any]:
     """Detect the audio system and related information."""
     system = platform.system()
-    audio_info = {
+    audio_info: Dict[str, Any] = {
         "platform": system,
         "audio_system": "unknown",
         "audio_backend": "sounddevice",
@@ -26,9 +26,9 @@ def detect_audio_system() -> Dict[str, str]:
     return audio_info
 
 
-def _detect_linux_audio() -> Dict[str, str]:
+def _detect_linux_audio() -> Dict[str, Any]:
     """Detect Linux audio system."""
-    audio_info = {"audio_system": "unknown", "details": {}}
+    audio_info: Dict[str, Any] = {"audio_system": "unknown", "details": {}}
 
     # Check for PipeWire
     try:
@@ -37,9 +37,9 @@ def _detect_linux_audio() -> Dict[str, str]:
         )
         if result.returncode == 0:
             audio_info["audio_system"] = "pipewire"
-            audio_info["audio_backend"] = (
-                "pipewire-python (preferred) / sounddevice (fallback)"
-            )
+            audio_info[
+                "audio_backend"
+            ] = "pipewire-python (preferred) / sounddevice (fallback)"
 
             # Get PipeWire version
             try:
@@ -47,9 +47,9 @@ def _detect_linux_audio() -> Dict[str, str]:
                     ["pipewire", "--version"], capture_output=True, text=True, timeout=2
                 )
                 if pw_version.returncode == 0:
-                    audio_info["details"]["pipewire_version"] = (
-                        pw_version.stdout.strip()
-                    )
+                    audio_info["details"][
+                        "pipewire_version"
+                    ] = pw_version.stdout.strip()
             except Exception:
                 pass
 
@@ -61,9 +61,9 @@ def _detect_linux_audio() -> Dict[str, str]:
                 audio_info["audio_backend"] = "pipewire-python"
             except ImportError:
                 audio_info["details"]["pipewire_python_available"] = False
-                audio_info["details"]["pipewire_python_install"] = (
-                    "pip install pipewire-python"
-                )
+                audio_info["details"][
+                    "pipewire_python_install"
+                ] = "pip install pipewire-python"
 
             return audio_info
     except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -87,9 +87,9 @@ def _detect_linux_audio() -> Dict[str, str]:
                     timeout=2,
                 )
                 if pa_version.returncode == 0:
-                    audio_info["details"]["pulseaudio_version"] = (
-                        pa_version.stdout.strip()
-                    )
+                    audio_info["details"][
+                        "pulseaudio_version"
+                    ] = pa_version.stdout.strip()
             except Exception:
                 pass
 
@@ -115,9 +115,9 @@ def _detect_linux_audio() -> Dict[str, str]:
     return audio_info
 
 
-def _detect_macos_audio() -> Dict[str, str]:
+def _detect_macos_audio() -> Dict[str, Any]:
     """Detect macOS audio system."""
-    audio_info = {
+    audio_info: Dict[str, Any] = {
         "audio_system": "coreaudio",
         "audio_backend": "sounddevice (via CoreAudio)",
         "details": {},
@@ -152,9 +152,9 @@ def _detect_macos_audio() -> Dict[str, str]:
     return audio_info
 
 
-def _detect_windows_audio() -> Dict[str, str]:
+def _detect_windows_audio() -> Dict[str, Any]:
     """Detect Windows audio system."""
-    audio_info = {
+    audio_info: Dict[str, Any] = {
         "audio_system": "wasapi",
         "audio_backend": "sounddevice (via WASAPI)",
         "details": {},
@@ -201,9 +201,10 @@ def print_audio_system_info():
     print(f"Audio System: {audio_info['audio_system']}", file=sys.stderr)
     print(f"Audio Backend: {audio_info['audio_backend']}", file=sys.stderr)
 
-    if audio_info["details"]:
+    details = audio_info.get("details", {})
+    if details and isinstance(details, dict):
         print("Details:", file=sys.stderr)
-        for key, value in audio_info["details"].items():
+        for key, value in details.items():
             if key == "pipewire_python_install":
                 print(f"  {key.replace('_', ' ').title()}: {value}", file=sys.stderr)
             else:
@@ -212,7 +213,7 @@ def print_audio_system_info():
     print("-" * 40, file=sys.stderr)
 
 
-def get_audio_device_info() -> List[Dict[str, any]]:
+def get_audio_device_info() -> List[Dict[str, Any]]:
     """Get detailed information about available audio devices."""
     try:
         import sounddevice as sd
