@@ -37,9 +37,9 @@ def _detect_linux_audio() -> Dict[str, Any]:
         )
         if result.returncode == 0:
             audio_info["audio_system"] = "pipewire"
-            audio_info[
-                "audio_backend"
-            ] = "pipewire-python (preferred) / sounddevice (fallback)"
+            audio_info["audio_backend"] = (
+                "pipewire-python (preferred) / sounddevice (fallback)"
+            )
 
             # Get PipeWire version
             try:
@@ -47,9 +47,9 @@ def _detect_linux_audio() -> Dict[str, Any]:
                     ["pipewire", "--version"], capture_output=True, text=True, timeout=2
                 )
                 if pw_version.returncode == 0:
-                    audio_info["details"][
-                        "pipewire_version"
-                    ] = pw_version.stdout.strip()
+                    audio_info["details"]["pipewire_version"] = (
+                        pw_version.stdout.strip()
+                    )
             except Exception:
                 pass
 
@@ -61,9 +61,9 @@ def _detect_linux_audio() -> Dict[str, Any]:
                 audio_info["audio_backend"] = "pipewire-python"
             except ImportError:
                 audio_info["details"]["pipewire_python_available"] = False
-                audio_info["details"][
-                    "pipewire_python_install"
-                ] = "pip install pipewire-python"
+                audio_info["details"]["pipewire_python_install"] = (
+                    "pip install pipewire-python"
+                )
 
             return audio_info
     except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -87,9 +87,9 @@ def _detect_linux_audio() -> Dict[str, Any]:
                     timeout=2,
                 )
                 if pa_version.returncode == 0:
-                    audio_info["details"][
-                        "pulseaudio_version"
-                    ] = pa_version.stdout.strip()
+                    audio_info["details"]["pulseaudio_version"] = (
+                        pa_version.stdout.strip()
+                    )
             except Exception:
                 pass
 
