@@ -7,7 +7,7 @@ import zipfile
 import requests
 from tqdm import tqdm
 
-from .xdg_paths import get_models_dir
+from .xdg_paths import get_default_model_path, get_models_dir
 
 MODEL_LIST_URL = "https://alphacephei.com/vosk/models/model-list.json"
 DEFAULT_OUTPUT_DIR = str(get_models_dir())
@@ -24,10 +24,13 @@ def fetch_models():
 
 
 def list_models(models, output_dir, installed_only=False):
-    print(f"{'Name':<40} {'Language':<20} {'Size':<10} {'Status'}")
-    print("-" * 80)
+    print(f"{'Name':<40} {'Language':<20} {'Size':<10} {'Status':<12} {'Default'}")
+    print("-" * 90)
 
     available_models = [m for m in models if not m.get("obsolete") == "true"]
+
+    # Get default model path
+    default_model_path = str(get_default_model_path())
 
     for model in available_models:
         name = model["name"]
@@ -43,7 +46,20 @@ def list_models(models, output_dir, installed_only=False):
             continue
 
         status = "Installed" if is_installed else ""
-        print(f"{name:<40} {lang:<20} {size:<10} {status}")
+
+        # Check if this is the default model
+        is_default = "✓" if target_path == default_model_path else ""
+
+        print(f"{name:<40} {lang:<20} {size:<10} {status:<12} {is_default}")
+
+    # Show footer with default model info
+    if not installed_only:
+        print("-" * 90)
+        print(f"Default model: {os.path.basename(default_model_path)}")
+        print(
+            "To set a different default, create ~/.config/vosk-wrapper-1000/config.yaml"
+        )
+
     return available_models
 
 
