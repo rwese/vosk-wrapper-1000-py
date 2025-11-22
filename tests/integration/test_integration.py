@@ -56,13 +56,11 @@ def mock_sounddevice():
 def mock_managers():
     with patch("vosk_wrapper_1000.main.SignalManager") as mock_sm_cls, patch(
         "vosk_wrapper_1000.main.ModelManager"
-    ) as mock_mm_cls, patch("vosk_wrapper_1000.main.DeviceManager") as mock_dm_cls, patch(
-        "vosk_wrapper_1000.main.HookManager"
-    ) as mock_hm_cls, patch(
+    ) as mock_mm_cls, patch(
+        "vosk_wrapper_1000.main.DeviceManager"
+    ) as mock_dm_cls, patch("vosk_wrapper_1000.main.HookManager") as mock_hm_cls, patch(
         "vosk_wrapper_1000.main.write_pid"
-    ), patch(
-        "vosk_wrapper_1000.main.remove_pid"
-    ):
+    ), patch("vosk_wrapper_1000.main.remove_pid"):
         # Setup SignalManager
         mock_sm = mock_sm_cls.return_value
         # Run a few loops then stop
@@ -90,7 +88,7 @@ def mock_managers():
 
 
 def test_service_flow(mock_vosk, mock_sounddevice, mock_managers, capsys):
-    mock_sm, mock_mm, mock_dm, mock_hm = mock_managers
+    _mock_sm, _mock_mm, _mock_dm, mock_hm = mock_managers
 
     # Setup InputStream mock to simulate callback
     mock_stream = MagicMock()
@@ -116,7 +114,7 @@ def test_service_flow(mock_vosk, mock_sounddevice, mock_managers, capsys):
     mock_vosk.Model.assert_called()
     mock_vosk.KaldiRecognizer.assert_called()
     mock_sounddevice.InputStream.assert_called()
-    mock_stream.start.assert_not_called()  # It might be called implicitly or explicitly?
+    mock_stream.start.assert_called_once()
     # main.py doesn't call stream.start(), InputStream starts automatically by default?
     # Wait, main.py: stream = sd.InputStream(...) -> context manager? No, just assignment.
     # It doesn't call start() explicitly?

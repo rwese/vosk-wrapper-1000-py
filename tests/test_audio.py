@@ -88,7 +88,7 @@ def main():
     chunk_count = 0
     total_frames = 0
     error_count = 0
-    audio_queue = queue.Queue()
+    audio_queue: queue.Queue = queue.Queue()
     start_time = None
     running = True
 
@@ -134,7 +134,7 @@ def main():
             last_report = start_time
             while running and (time.time() - start_time) < args.duration:
                 try:
-                    frames, byte_count = audio_queue.get(timeout=0.1)
+                    _frames, _byte_count = audio_queue.get(timeout=0.1)
 
                     # Print progress every second
                     elapsed = time.time() - start_time

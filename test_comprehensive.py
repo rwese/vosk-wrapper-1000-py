@@ -13,7 +13,6 @@ import time
 # Add src to path so we can import the modules
 sys.path.insert(0, "src")
 
-# ruff: noqa: E402
 from vosk_wrapper_1000.audio_processor import AudioProcessor
 from vosk_wrapper_1000.audio_recorder import AudioRecorder
 from vosk_wrapper_1000.device_manager import DeviceManager

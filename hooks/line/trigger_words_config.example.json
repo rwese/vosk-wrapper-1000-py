@@ -1,0 +1,42 @@
+{
+  "enable_triggers": true,
+  "triggers": [
+    {
+      "pattern": "\\bbreaker\\b",
+      "name": "breaker",
+      "exit_code": 100,
+      "description": "Stop Listening",
+      "case_sensitive": false
+    },
+    {
+      "pattern": "\\bshutdown\\b",
+      "name": "shutdown",
+      "exit_code": 101,
+      "description": "Terminate",
+      "case_sensitive": false
+    },
+    {
+      "pattern": "\\babort\\b",
+      "name": "abort",
+      "exit_code": 102,
+      "description": "Abort",
+      "case_sensitive": false
+    },
+    {
+      "pattern": "\\bhelp\\b",
+      "name": "help",
+      "exit_code": 0,
+      "description": "Trigger help script",
+      "script_path": "/path/to/help_script.sh",
+      "case_sensitive": false
+    },
+    {
+      "pattern": "\\balert\\b",
+      "name": "alert",
+      "exit_code": 0,
+      "description": "Send webhook alert",
+      "webhook_url": "https://hooks.example.com/alert",
+      "case_sensitive": false
+    }
+  ]
+}

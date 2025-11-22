@@ -89,9 +89,13 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = [
+    "E402",  # module level import not at top of file (for sys.path manipulation)
     "E501",  # line too long in tests
     "F841",  # unused variable in tests
     "B007",  # unused loop control variable
+]
+"test_*.py" = [
+    "E402",  # module level import not at top of file (for sys.path manipulation)
 ]
 
 [tool.black]

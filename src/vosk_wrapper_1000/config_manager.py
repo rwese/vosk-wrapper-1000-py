@@ -83,6 +83,16 @@ class ServiceConfig:
 
 
 @dataclass
+class IPCConfig:
+    """IPC configuration settings."""
+
+    enabled: bool = True
+    socket_path: str = "/tmp/vosk-wrapper-{instance_name}.sock"
+    send_partials: bool = True
+    timeout: float = 5.0
+
+
+@dataclass
 class Config:
     """Main configuration class containing all settings."""
 
@@ -93,6 +103,7 @@ class Config:
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     performance: PerformanceConfig = field(default_factory=PerformanceConfig)
     service: ServiceConfig = field(default_factory=ServiceConfig)
+    ipc: IPCConfig = field(default_factory=IPCConfig)
 
 
 class ConfigManager:
@@ -154,7 +165,7 @@ class ConfigManager:
 
     def _load_config(self) -> Config:
         """Internal method to load configuration."""
-        config_data = {}
+        config_data: Dict[str, Any] = {}
 
         # Load from file if available
         if self.config_file:
@@ -182,47 +193,60 @@ class ConfigManager:
             logging=LoggingConfig(**data.get("logging", {})),
             performance=PerformanceConfig(**data.get("performance", {})),
             service=ServiceConfig(**data.get("service", {})),
+            ipc=IPCConfig(**data.get("ipc", {})),
         )
 
     def _apply_env_overrides(self, config: Config) -> None:
         """Apply environment variable overrides to configuration."""
         # Audio overrides
-        if os.getenv("VOSK_AUDIO_DEVICE"):
-            config.audio.device = os.getenv("VOSK_AUDIO_DEVICE")
-        if os.getenv("VOSK_AUDIO_BLOCKSIZE"):
-            config.audio.blocksize = int(os.getenv("VOSK_AUDIO_BLOCKSIZE"))
-        if os.getenv("VOSK_AUDIO_SAMPLERATE"):
-            config.audio.samplerate = int(os.getenv("VOSK_AUDIO_SAMPLERATE"))
+        if (device := os.getenv("VOSK_AUDIO_DEVICE")) is not None:
+            config.audio.device = device
+        if (blocksize := os.getenv("VOSK_AUDIO_BLOCKSIZE")) is not None:
+            config.audio.blocksize = int(blocksize)
+        if (samplerate := os.getenv("VOSK_AUDIO_SAMPLERATE")) is not None:
+            config.audio.samplerate = int(samplerate)
 
         # Model overrides
-        if os.getenv("VOSK_MODEL_PATH"):
-            config.model.path = os.getenv("VOSK_MODEL_PATH")
-        if os.getenv("VOSK_MODEL_NAME"):
-            config.model.default_name = os.getenv("VOSK_MODEL_NAME")
+        if (model_path := os.getenv("VOSK_MODEL_PATH")) is not None:
+            config.model.path = model_path
+        if (model_name := os.getenv("VOSK_MODEL_NAME")) is not None:
+            config.model.default_name = model_name
 
         # Recognition overrides
-        if os.getenv("VOSK_WORDS"):
-            config.recognition.words = os.getenv("VOSK_WORDS").lower() in (
+        if (words := os.getenv("VOSK_WORDS")) is not None:
+            config.recognition.words = words.lower() in (
                 "true",
                 "1",
                 "yes",
             )
-        if os.getenv("VOSK_PARTIAL_WORDS"):
-            config.recognition.partial_words = os.getenv(
-                "VOSK_PARTIAL_WORDS"
-            ).lower() in ("true", "1", "yes")
-        if os.getenv("VOSK_GRAMMAR"):
-            config.recognition.grammar = os.getenv("VOSK_GRAMMAR")
+        if (partial_words := os.getenv("VOSK_PARTIAL_WORDS")) is not None:
+            config.recognition.partial_words = partial_words.lower() in (
+                "true",
+                "1",
+                "yes",
+            )
+        if (grammar := os.getenv("VOSK_GRAMMAR")) is not None:
+            config.recognition.grammar = grammar
 
         # Logging overrides
-        if os.getenv("VOSK_LOG_LEVEL"):
-            config.logging.level = os.getenv("VOSK_LOG_LEVEL")
-        if os.getenv("VOSK_LOG_FILE"):
-            config.logging.file = os.getenv("VOSK_LOG_FILE")
+        if (log_level := os.getenv("VOSK_LOG_LEVEL")) is not None:
+            config.logging.level = log_level
+        if (log_file := os.getenv("VOSK_LOG_FILE")) is not None:
+            config.logging.file = log_file
 
         # Service overrides
-        if os.getenv("VOSK_INSTANCE_NAME"):
-            config.service.instance_name = os.getenv("VOSK_INSTANCE_NAME")
+        if (instance_name := os.getenv("VOSK_INSTANCE_NAME")) is not None:
+            config.service.instance_name = instance_name
+
+        # IPC overrides
+        if (ipc_enabled := os.getenv("VOSK_IPC_ENABLED")) is not None:
+            config.ipc.enabled = ipc_enabled.lower() in (
+                "true",
+                "1",
+                "yes",
+            )
+        if (socket_path := os.getenv("VOSK_IPC_SOCKET_PATH")) is not None:
+            config.ipc.socket_path = socket_path
 
     def save_config(
         self, config: Config, file_path: Optional[Union[str, Path]] = None
@@ -278,6 +302,12 @@ class ConfigManager:
                 "instance_name": config.service.instance_name,
                 "pid_directory": config.service.pid_directory,
                 "shutdown_timeout": config.service.shutdown_timeout,
+            },
+            "ipc": {
+                "enabled": config.ipc.enabled,
+                "socket_path": config.ipc.socket_path,
+                "send_partials": config.ipc.send_partials,
+                "timeout": config.ipc.timeout,
             },
         }
 

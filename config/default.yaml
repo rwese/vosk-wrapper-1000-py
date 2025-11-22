@@ -89,3 +89,17 @@ service:
 
   # Graceful shutdown timeout (seconds)
   shutdown_timeout: 10
+
+# IPC Settings
+ipc:
+  # Enable IPC server for command & control
+  enabled: true
+
+  # Unix domain socket path template ({instance_name} will be replaced)
+  socket_path: "/tmp/vosk-wrapper-{instance_name}.sock"
+
+  # Broadcast partial transcription results to IPC clients
+  send_partials: true
+
+  # Request timeout for IPC clients (seconds)
+  timeout: 5.0

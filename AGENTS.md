@@ -564,6 +564,125 @@ vosk-wrapper-1000 start
 # Hooks will process each line automatically
 ```
 
+### Pattern 5: IPC Integration (Recommended for Apps)
+
+```bash
+# 1. Start daemon with IPC enabled (default)
+vosk-wrapper-1000 daemon --name app-backend
+
+# 2. Connect to socket /tmp/vosk-wrapper-app-backend.sock
+
+# 3. Send JSON commands
+# -> {"command": "start", "id": "1"}
+# <- {"id": "1", "success": true, "data": {"listening": true}}
+
+# 4. Receive events
+# <- {"type": "transcription", "text": "hello", ...}
+```
+
+---
+
+## Inter-Process Communication (IPC)
+
+### IPC Overview - PREFERRED INTEGRATION METHOD
+
+You **MUST** use the IPC interface for robust application integration. The CLI is for manual control and simple scripting.
+
+1.  **Enable IPC**: You **MUST** enable IPC in configuration or via environment variable `VOSK_IPC_ENABLED=true`.
+2.  **Socket Path**: You **MUST** connect to the Unix domain socket at `/tmp/vosk-wrapper-{instance_name}.sock` (default).
+3.  **Protocol**: You **MUST** use the JSON-based protocol described in `docs/IPC_PROTOCOL.md`.
+
+### IPC CLI Tools
+
+You **CAN** use these CLI tools to interact with the IPC interface:
+
+```bash
+# Send a command to a running instance
+vosk-wrapper-1000 send --name my-instance --ipc-command status
+vosk-wrapper-1000 send --name my-instance --ipc-command toggle
+vosk-wrapper-1000 send --name my-instance --ipc-command transcript
+
+# Stream live events (transcriptions)
+vosk-wrapper-1000 stream --name my-instance
+```
+
+### IPC Commands
+
+You **MUST** send commands as JSON objects with a unique `id`.
+
+```json
+{
+  "command": "start",
+  "id": "unique-request-id"
+}
+```
+
+Supported commands:
+-   `start`: Start listening.
+-   `stop`: Stop listening.
+-   `toggle`: Toggle listening state.
+-   `status`: Get current status.
+-   `get_transcript`: Get current transcript buffer.
+-   `get_devices`: List available audio devices.
+-   `subscribe`: Subscribe to events.
+
+### IPC Events
+
+You **MUST** handle asynchronous events if you subscribe to them.
+
+-   `transcription`: Real-time transcription data (partial and final).
+-   `status_change`: Listening state changes.
+-   `ready`: Service is ready.
+
+```json
+{
+  "type": "transcription",
+  "result_type": "final",
+  "text": "hello world",
+  "confidence": 1.0,
+  "timestamp": 1234567890.123,
+  "session_id": "..."
+}
+```
+
+## Advanced Hooks System
+
+### Trigger Words
+
+You **CAN** use the built-in trigger words hook to execute actions based on spoken phrases.
+
+1.  **Configuration**: You **MUST** configure trigger words in `hooks/line/trigger_words_config.json`.
+2.  **Format**:
+    ```json
+    {
+      "triggers": [
+        {
+          "phrase": "stop listening",
+          "action": "stop_listening"
+        },
+        {
+          "phrase": "shutdown system",
+          "action": "terminate"
+        }
+      ]
+    }
+    ```
+
+### Python Hooks
+
+You **CAN** write hooks in Python for complex logic.
+
+-   File extension **MUST** be `.py`.
+-   Script **MUST** have a shebang `#!/usr/bin/env python3`.
+-   Script **MUST** be executable.
+-   Script **MUST** accept the current line as the first argument.
+-   Script **MUST** accept the full transcript via stdin.
+-   Script **MUST** return specific exit codes to control the daemon:
+    -   `0`: Continue normal operation.
+    -   `100`: Stop listening.
+    -   `101`: Terminate daemon.
+    -   `102`: Stop listening AND terminate daemon.
+
 ---
 
 ## File Locations - IMPORTANT

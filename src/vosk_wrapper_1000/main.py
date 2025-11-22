@@ -8,13 +8,17 @@ import queue
 import signal
 import sys
 import time
+from typing import List
+from uuid import uuid4
 
 # Import local modules
 from .audio_processor import AudioProcessor
 from .audio_recorder import AudioRecorder
 from .audio_system import print_audio_system_info
+from .config_manager import ConfigManager
 from .device_manager import DeviceManager
 from .hook_manager import HookManager
+from .ipc_server import IPCServer
 from .model_manager import ModelManager
 from .pid_manager import list_instances, remove_pid, send_signal_to_instance, write_pid
 from .signal_manager import SignalManager
@@ -24,16 +28,22 @@ from .xdg_paths import get_hooks_dir
 logger = logging.getLogger(__name__)
 
 
-def setup_logging(log_level=None):
+def setup_logging(log_level=None, config_manager=None):
     """Configure logging for the application.
 
     Args:
         log_level: Log level string (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-                   If None, checks VOSK_LOG_LEVEL env var, defaults to WARNING
+                   If None, uses config file, then VOSK_LOG_LEVEL env var, defaults to WARNING
+        config_manager: ConfigManager instance (optional, for loading from config file)
     """
-    # Determine log level: CLI arg > env var > default
+    # Determine log level: CLI arg > env var > config file > default
     if log_level is None:
-        log_level = os.environ.get("VOSK_LOG_LEVEL", "WARNING")
+        log_level = os.environ.get("VOSK_LOG_LEVEL")
+        if log_level is None and config_manager is not None:
+            config = config_manager.load_config()
+            log_level = config.logging.level
+        if log_level is None:
+            log_level = "WARNING"
 
     # Convert string to logging constant
     numeric_level = getattr(logging, log_level.upper(), logging.WARNING)
@@ -48,13 +58,193 @@ def setup_logging(log_level=None):
     logger.info(f"Logging configured with level: {log_level}")
 
 
+def handle_ipc_command(
+    cmd_data,
+    ipc_server,
+    signal_manager,
+    device_manager,
+    device_info,
+    device_id,
+    model_path,
+    transcript_buffer,
+    start_time,
+    session_id,
+):
+    """Handle IPC command from client.
+
+    Args:
+        cmd_data: Dict with 'client' and 'message' keys
+        ipc_server: IPCServer instance
+        signal_manager: SignalManager instance
+        device_manager: DeviceManager instance
+        device_info: Device info dict
+        device_id: Device ID
+        model_path: Path to model
+        transcript_buffer: List of transcript lines
+        start_time: Service start timestamp
+        session_id: Current session ID
+
+    Returns:
+        None
+    """
+    client = cmd_data["client"]
+    message = cmd_data["message"]
+    command = message.get("command")
+    request_id = message.get("id")
+
+    try:
+        if command == "start":
+            if signal_manager.is_listening():
+                ipc_server.send_response(
+                    client,
+                    request_id,
+                    False,
+                    error={"code": "ALREADY_LISTENING", "message": "Already listening"},
+                )
+            else:
+                signal_manager.set_listening(True)
+                ipc_server.send_response(
+                    client, request_id, True, data={"listening": True}
+                )
+
+        elif command == "stop":
+            if not signal_manager.is_listening():
+                ipc_server.send_response(
+                    client,
+                    request_id,
+                    False,
+                    error={
+                        "code": "NOT_LISTENING",
+                        "message": "Not currently listening",
+                    },
+                )
+            else:
+                signal_manager.set_listening(False)
+                ipc_server.send_response(
+                    client, request_id, True, data={"listening": False}
+                )
+
+        elif command == "toggle":
+            is_listening = signal_manager.is_listening()
+            signal_manager.set_listening(not is_listening)
+            ipc_server.send_response(
+                client,
+                request_id,
+                True,
+                data={
+                    "listening": not is_listening,
+                    "action": "started" if not is_listening else "stopped",
+                },
+            )
+
+        elif command == "status":
+            uptime = time.time() - start_time
+            status_data = {
+                "listening": signal_manager.is_listening(),
+                "pid": os.getpid(),
+                "uptime": uptime,
+                "device": device_info["name"] if device_info else "default",
+                "device_id": device_id,
+                "model": str(model_path),
+                "session_id": session_id,
+            }
+            ipc_server.send_response(client, request_id, True, data=status_data)
+
+        elif command == "get_transcript":
+            ipc_server.send_response(
+                client,
+                request_id,
+                True,
+                data={
+                    "transcript": transcript_buffer,
+                    "session_id": session_id,
+                    "start_time": start_time,
+                },
+            )
+
+        elif command == "get_devices":
+            devices = device_manager.refresh_devices()
+            device_list = [
+                {
+                    "id": d["id"],
+                    "name": d["name"],
+                    "channels": d["max_input_channels"],
+                }
+                for d in devices
+            ]
+            ipc_server.send_response(
+                client,
+                request_id,
+                True,
+                data={
+                    "devices": device_list,
+                    "current_device": device_id,
+                },
+            )
+
+        elif command == "subscribe":
+            client.subscribed = True
+            events = message.get("params", {}).get("events", [])
+            if events:
+                client.subscribed_events = set(events)
+            ipc_server.send_response(
+                client, request_id, True, data={"subscribed": True}
+            )
+
+        elif command == "unsubscribe":
+            client.subscribed = False
+            client.subscribed_events = set()
+            ipc_server.send_response(
+                client, request_id, True, data={"subscribed": False}
+            )
+
+        else:
+            ipc_server.send_response(
+                client,
+                request_id,
+                False,
+                error={
+                    "code": "INVALID_COMMAND",
+                    "message": f"Unknown command: {command}",
+                },
+            )
+
+    except Exception as e:
+        logger.error(f"Error handling IPC command '{command}': {e}")
+        ipc_server.send_response(
+            client,
+            request_id,
+            False,
+            error={"code": "INTERNAL_ERROR", "message": str(e)},
+        )
+
+
 def run_service(args):
     """Run the main voice recognition service."""
+    # Initialize config manager
+    config_manager = ConfigManager()
+    config = config_manager.load_config()
+
     # Initialize managers
     signal_manager = SignalManager()
     model_manager = ModelManager()
     device_manager = DeviceManager()
     hook_manager = HookManager(args.hooks_dir)
+
+    # Initialize IPC server if enabled
+    ipc_server = None
+    session_id = str(uuid4())
+    start_time = time.time()
+
+    if config.ipc.enabled:
+        instance_name = args.name
+        socket_path = config.ipc.socket_path.format(instance_name=instance_name)
+        ipc_server = IPCServer(socket_path, send_partials=config.ipc.send_partials)
+        if not ipc_server.start():
+            logger.warning("Failed to start IPC server, continuing without IPC")
+            ipc_server = None
+        else:
+            logger.info(f"IPC server started on {socket_path}")
 
     # Initialize audio components with placeholder rates
     audio_processor = AudioProcessor(
@@ -165,10 +355,23 @@ def run_service(args):
         logger.info("Using default audio device")
     logger.info("Send SIGUSR1 to start listening, SIGUSR2 to stop.")
 
+    # Send ready event to IPC clients
+    if ipc_server:
+        ready_event = {
+            "type": "ready",
+            "pid": os.getpid(),
+            "device": device_info["name"] if device_info else "default",
+            "device_id": device_id,
+            "model": str(args.model),
+            "timestamp": time.time(),
+        }
+        ipc_server.broadcast_event(ready_event)
+        logger.info("Service ready")
+
     # Audio Stream Management
     stream = None
     audio_queue: queue.Queue[bytes] = queue.Queue()
-    transcript_buffer = []
+    transcript_buffer: List[str] = []
     callback_counter = [0]  # Use list to allow modification in nested function
 
     def audio_callback(indata, frames, time, status):
@@ -205,6 +408,23 @@ def run_service(args):
 
     try:
         while signal_manager.is_running():
+            # Process IPC commands (non-blocking)
+            if ipc_server:
+                commands = ipc_server.process(timeout=0.0)
+                for cmd_data in commands:
+                    handle_ipc_command(
+                        cmd_data,
+                        ipc_server,
+                        signal_manager,
+                        device_manager,
+                        device_info,
+                        device_id,
+                        args.model,
+                        transcript_buffer,
+                        start_time,
+                        session_id,
+                    )
+
             # Check if we need to start listening
             if signal_manager.is_listening() and stream is None:
                 logger.info("Starting microphone stream...")
@@ -250,6 +470,16 @@ def run_service(args):
                     )
                     sys.stderr.flush()
 
+                    # Broadcast status change event
+                    if ipc_server:
+                        ipc_server.broadcast_event(
+                            {
+                                "type": "status_change",
+                                "event": "listening_started",
+                                "timestamp": time.time(),
+                            }
+                        )
+
                     # Execute START hooks
                     action = hook_manager.run_hooks("start")
                     if action == 100:
@@ -276,6 +506,16 @@ def run_service(args):
                 stream.close()
                 stream = None
                 print("Microphone stream stopped.", file=sys.stderr)
+
+                # Broadcast status change event
+                if ipc_server:
+                    ipc_server.broadcast_event(
+                        {
+                            "type": "status_change",
+                            "event": "listening_stopped",
+                            "timestamp": time.time(),
+                        }
+                    )
 
                 # Get final result from recognizer (any pending recognition)
                 final_result = json.loads(rec.FinalResult())
@@ -331,6 +571,19 @@ def run_service(args):
                             sys.stdout.flush()
                             transcript_buffer.append(text)
 
+                            # Broadcast final transcription to IPC clients
+                            if ipc_server:
+                                ipc_server.broadcast_event(
+                                    {
+                                        "type": "transcription",
+                                        "result_type": "final",
+                                        "text": text,
+                                        "confidence": result.get("confidence", 1.0),
+                                        "timestamp": time.time(),
+                                        "session_id": session_id,
+                                    }
+                                )
+
                             # Execute LINE hooks
                             full_context = "\n".join(transcript_buffer)
                             action = hook_manager.run_hooks(
@@ -345,7 +598,20 @@ def run_service(args):
                                 signal_manager.set_running(False)
                                 signal_manager.set_listening(False)
                     else:
-                        pass
+                        # Broadcast partial result if enabled
+                        if ipc_server and config.ipc.send_partials:
+                            partial_result = json.loads(rec.PartialResult())
+                            partial_text = partial_result.get("partial", "")
+                            if partial_text:
+                                ipc_server.broadcast_event(
+                                    {
+                                        "type": "transcription",
+                                        "result_type": "partial",
+                                        "text": partial_text,
+                                        "timestamp": time.time(),
+                                        "session_id": session_id,
+                                    }
+                                )
                 except queue.Empty:
                     pass
                 except Exception as e:
@@ -382,6 +648,10 @@ def run_service(args):
 
         # Clean up PID file
         remove_pid(instance_name)
+
+        # Stop IPC server
+        if ipc_server:
+            ipc_server.stop()
 
     print("Exiting...", file=sys.stderr)
 
@@ -421,6 +691,132 @@ def cmd_list(args):
     print("-" * 30)
     for name, pid in instances:
         print(f"{name:<20} {pid:<10}")
+
+
+def cmd_send(args):
+    """Send IPC command to a running instance."""
+    from .ipc_client import CommandError
+    from .ipc_client import ConnectionError as IPCConnectionError
+    from .ipc_client import IPCClient, get_socket_path
+
+    socket_path = get_socket_path(args.name)
+
+    try:
+        with IPCClient(socket_path) as client:
+            # Execute command
+            if args.ipc_command == "toggle":
+                result = client.send_command("toggle")
+                action = result.get("action", "")
+                if action == "started":
+                    print(f"✓ Listening started on instance '{args.name}'")
+                else:
+                    print(f"✓ Listening stopped on instance '{args.name}'")
+
+            elif args.ipc_command == "start":
+                result = client.send_command("start")
+                print(f"✓ Started listening on instance '{args.name}'")
+
+            elif args.ipc_command == "stop":
+                result = client.send_command("stop")
+                print(f"✓ Stopped listening on instance '{args.name}'")
+
+            elif args.ipc_command == "status":
+                result = client.send_command("status")
+                print(f"Instance: {args.name}")
+                print(f"PID: {result['pid']}")
+                print(f"Listening: {'Yes' if result['listening'] else 'No'}")
+                print(f"Uptime: {result['uptime']:.1f}s")
+                print(f"Device: {result['device']}")
+                print(f"Model: {result['model']}")
+
+            elif args.ipc_command == "transcript":
+                result = client.send_command("get_transcript")
+                transcript = result.get("transcript", [])
+                if transcript:
+                    for line in transcript:
+                        print(line)
+                else:
+                    print("(no transcript yet)")
+
+            elif args.ipc_command == "devices":
+                result = client.send_command("get_devices")
+                devices = result.get("devices", [])
+                current = result.get("current_device")
+                print(f"{'ID':<5} {'Name':<40} {'Channels':<10} {'Current':<10}")
+                print("-" * 70)
+                for dev in devices:
+                    is_current = "✓" if dev["id"] == current else ""
+                    print(
+                        f"{dev['id']:<5} {dev['name']:<40} {dev['channels']:<10} {is_current:<10}"
+                    )
+
+    except IPCConnectionError:
+        print(f"Error: Cannot connect to instance '{args.name}'", file=sys.stderr)
+        print(f"Socket: {socket_path}", file=sys.stderr)
+        print("Is the daemon running? Try: vosk-wrapper-1000 list", file=sys.stderr)
+        sys.exit(1)
+    except CommandError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def cmd_stream(args):
+    """Stream live transcription from a running instance."""
+    from .ipc_client import ConnectionError as IPCConnectionError
+    from .ipc_client import IPCClient, get_socket_path
+
+    socket_path = get_socket_path(args.name)
+
+    try:
+        with IPCClient(socket_path) as client:
+            # Subscribe to events
+            events = ["transcription", "status", "ready"]
+            client.subscribe(events)
+
+            print(f"Streaming from instance '{args.name}' (Ctrl+C to stop)...")
+            print()
+
+            # Stream events
+            for event in client.stream_events():
+                event_type = event.get("type")
+
+                if event_type == "ready":
+                    print(
+                        f"[READY] Service ready - PID: {event.get('pid')}, Device: {event.get('device')}"
+                    )
+
+                elif event_type == "transcription":
+                    result_type = event.get("result_type")
+                    text = event.get("text", "")
+
+                    if result_type == "partial":
+                        if not args.no_partials:
+                            print(f"\r[PARTIAL] {text}", end="", flush=True)
+                    elif result_type == "final":
+                        if not args.no_partials:
+                            print("\r" + " " * 80 + "\r", end="")  # Clear partial line
+                        print(f"[FINAL] {text}")
+
+                elif event_type == "status_change":
+                    event_name = event.get("event", "")
+                    if event_name == "listening_started":
+                        print("[STATUS] Listening started")
+                    elif event_name == "listening_stopped":
+                        print("[STATUS] Listening stopped")
+
+    except IPCConnectionError:
+        print(f"Error: Cannot connect to instance '{args.name}'", file=sys.stderr)
+        print(f"Socket: {socket_path}", file=sys.stderr)
+        print("Is the daemon running? Try: vosk-wrapper-1000 list", file=sys.stderr)
+        sys.exit(1)
+    except KeyboardInterrupt:
+        print("\n\nStream interrupted by user")
+    except Exception as e:
+        print(f"Unexpected error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 def main():
@@ -570,11 +966,38 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
 
     subparsers.add_parser("list", help="List all running instances")
 
+    # IPC send command
+    send_parser = subparsers.add_parser(
+        "send", help="Send IPC command to a running instance"
+    )
+    send_parser.add_argument(
+        "ipc_command",
+        choices=["start", "stop", "toggle", "status", "transcript", "devices"],
+        help="Command to send",
+    )
+    send_parser.add_argument(
+        "--name", "-n", default="default", help="Instance name (default: default)"
+    )
+
+    # IPC stream command
+    stream_parser = subparsers.add_parser(
+        "stream", help="Stream live transcription from a running instance"
+    )
+    stream_parser.add_argument(
+        "--name", "-n", default="default", help="Instance name (default: default)"
+    )
+    stream_parser.add_argument(
+        "--no-partials",
+        action="store_true",
+        help="Don't show partial results, only final transcriptions",
+    )
+
     args = parser.parse_args()
 
-    # Setup logging based on args or environment
+    # Setup logging based on args, environment, or config file
     log_level = getattr(args, "log_level", None)
-    setup_logging(log_level)
+    config_manager = ConfigManager()
+    setup_logging(log_level, config_manager)
 
     if args.command == "daemon":
         run_service(args)
@@ -586,6 +1009,10 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
         cmd_terminate(args)
     elif args.command == "list":
         cmd_list(args)
+    elif args.command == "send":
+        cmd_send(args)
+    elif args.command == "stream":
+        cmd_stream(args)
     else:
         parser.print_help()
 
