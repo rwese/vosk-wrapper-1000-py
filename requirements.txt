@@ -3,3 +3,7 @@ sounddevice
 numpy
 requests
 tqdm
+PyYAML
+noisereduce
+scipy
+matplotlib

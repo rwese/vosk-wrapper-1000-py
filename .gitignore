@@ -8,10 +8,16 @@ venv/
 env/
 .env
 
-# Vosk Models
+# Vosk Models (should be in XDG local storage, not in repo)
 models/
 model/
 *.zip
+*.model
+
+# Audio recordings (temporary files)
+*.wav
+*.mp3
+*.flac
 
 # Logs and Output
 *.log
@@ -19,3 +25,31 @@ stop_output.txt
 
 # OS specific
 .DS_Store
+Thumbs.db
+
+# Build and distribution
+build/
+dist/
+*.egg-info/
+*.whl
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+
+# Configuration (should be in XDG config, not in repo)
+config.yaml
+config.yml
+*.conf
+
+# Cache and temporary files
+.cache/
+tmp/
+temp/

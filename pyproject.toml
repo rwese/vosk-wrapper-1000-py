@@ -3,13 +3,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "vosk-wrapper-1000"
+name = "vosk-simple"
 version = "0.1.0"
 description = "A simple, robust, and configurable Python-based speech recognition service using Vosk"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-    "vosk",
+    "vosk==0.3.44",
     "sounddevice",
     "numpy",
     "scipy",
@@ -17,17 +17,40 @@ dependencies = [
     "tqdm",
     "noisereduce",
     "soxr>=0.3.7",
+    "PyYAML",
 ]
 
 [project.scripts]
-vosk-wrapper-1000 = "main:main"
-vosk-download-model-1000 = "download_model:main"
+vosk-simple = "vosk_simple.main:main"
+vosk-download-model = "vosk_simple.download_model:main"
 
 [tool.hatch.build.targets.wheel]
-only-include = ["main.py", "download_model.py", "hook_manager.py", "xdg_paths.py", "pid_manager.py", "audio_backend.py"]
+only-include = [
+    "src/vosk_simple",
+]
 
 [project.optional-dependencies]
 pipewire = ["pipewire-python"]
 
 [dependency-groups]
-dev = []
+dev = [
+    "pre-commit>=3.5.0",
+    "pytest>=8.3.5",
+    "pytest-cov",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]

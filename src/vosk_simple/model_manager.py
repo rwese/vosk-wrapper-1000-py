@@ -1,7 +1,7 @@
 """Vosk model management utilities."""
 
 import os
-from xdg_paths import get_models_dir, get_default_model_path
+from .xdg_paths import get_models_dir, get_default_model_path
 
 
 class ModelManager:
@@ -80,7 +80,7 @@ class ModelManager:
                         if os.path.exists(file_path):
                             total_size += os.path.getsize(file_path)
                 info["size_mb"] = round(total_size / (1024 * 1024), 2)
-            except:
+            except Exception:
                 pass
 
         return info

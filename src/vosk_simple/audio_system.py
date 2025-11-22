@@ -37,9 +37,9 @@ def _detect_linux_audio() -> Dict[str, str]:
         )
         if result.returncode == 0:
             audio_info["audio_system"] = "pipewire"
-            audio_info["audio_backend"] = (
-                "pipewire-python (preferred) / sounddevice (fallback)"
-            )
+            audio_info[
+                "audio_backend"
+            ] = "pipewire-python (preferred) / sounddevice (fallback)"
 
             # Get PipeWire version
             try:
@@ -47,23 +47,23 @@ def _detect_linux_audio() -> Dict[str, str]:
                     ["pipewire", "--version"], capture_output=True, text=True, timeout=2
                 )
                 if pw_version.returncode == 0:
-                    audio_info["details"]["pipewire_version"] = (
-                        pw_version.stdout.strip()
-                    )
-            except:
+                    audio_info["details"][
+                        "pipewire_version"
+                    ] = pw_version.stdout.strip()
+            except Exception:
                 pass
 
             # Check if pipewire-python is available
             try:
-                import pipewire_python
+                import pipewire_python  # noqa: F401
 
                 audio_info["details"]["pipewire_python_available"] = True
                 audio_info["audio_backend"] = "pipewire-python"
             except ImportError:
                 audio_info["details"]["pipewire_python_available"] = False
-                audio_info["details"]["pipewire_python_install"] = (
-                    "pip install pipewire-python"
-                )
+                audio_info["details"][
+                    "pipewire_python_install"
+                ] = "pip install pipewire-python"
 
             return audio_info
     except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -87,10 +87,10 @@ def _detect_linux_audio() -> Dict[str, str]:
                     timeout=2,
                 )
                 if pa_version.returncode == 0:
-                    audio_info["details"]["pulseaudio_version"] = (
-                        pa_version.stdout.strip()
-                    )
-            except:
+                    audio_info["details"][
+                        "pulseaudio_version"
+                    ] = pa_version.stdout.strip()
+            except Exception:
                 pass
 
             return audio_info
@@ -130,7 +130,7 @@ def _detect_macos_audio() -> Dict[str, str]:
         )
         if result.returncode == 0:
             audio_info["details"]["macos_version"] = result.stdout.strip()
-    except:
+    except Exception:
         pass
 
     # Check audio devices with system_profiler
@@ -145,7 +145,7 @@ def _detect_macos_audio() -> Dict[str, str]:
             # Count audio devices
             device_count = result.stdout.count("Audio Device:")
             audio_info["details"]["audio_devices"] = device_count
-    except:
+    except Exception:
         pass
 
     return audio_info
@@ -166,7 +166,7 @@ def _detect_windows_audio() -> Dict[str, str]:
         )
         if result.returncode == 0:
             audio_info["details"]["windows_version"] = result.stdout.strip()
-    except:
+    except Exception:
         pass
 
     # Check for PowerShell to get more audio info
@@ -185,7 +185,7 @@ def _detect_windows_audio() -> Dict[str, str]:
                 if line.strip() and "Name" not in line
             ]
             audio_info["details"]["audio_devices"] = len(devices)
-    except:
+    except Exception:
         pass
 
     return audio_info
@@ -232,11 +232,11 @@ def get_audio_device_info() -> List[Dict[str, any]]:
 
                 # Try to get supported sample rates (not always available)
                 try:
-                    supported_rates = sd.check_input_settings(
+                    _ = sd.check_input_settings(
                         device=i, samplerate=device["default_samplerate"]
                     )
                     device_info["supported_rates"] = [device["default_samplerate"]]
-                except:
+                except Exception:
                     device_info["supported_rates"] = ["Unknown"]
 
                 device_list.append(device_info)

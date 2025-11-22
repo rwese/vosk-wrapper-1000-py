@@ -5,13 +5,18 @@ from abc import ABC, abstractmethod
 from typing import Optional, Callable
 
 
-
 class AudioBackend(ABC):
     """Abstract base class for audio backends."""
 
     @abstractmethod
-    def create_stream(self, samplerate: int, blocksize: int, device: Optional[int],
-                     channels: int, callback: Callable) -> bool:
+    def create_stream(
+        self,
+        samplerate: int,
+        blocksize: int,
+        device: Optional[int],
+        channels: int,
+        callback: Callable,
+    ) -> bool:
         """
         Create and start an audio input stream.
 
@@ -36,12 +41,19 @@ class SoundDeviceBackend(AudioBackend):
 
     def __init__(self):
         import sounddevice as sd
+
         self.sd = sd
         self.stream = None
         self._creation_thread = None
 
-    def create_stream(self, samplerate: int, blocksize: int, device: Optional[int],
-                     channels: int, callback: Callable) -> bool:
+    def create_stream(
+        self,
+        samplerate: int,
+        blocksize: int,
+        device: Optional[int],
+        channels: int,
+        callback: Callable,
+    ) -> bool:
         """Create stream in a background thread to avoid blocking."""
         stream_created = False
         stream_error = None
@@ -53,9 +65,9 @@ class SoundDeviceBackend(AudioBackend):
                     samplerate=samplerate,
                     blocksize=blocksize,
                     device=device,
-                    dtype='int16',
+                    dtype="int16",
                     channels=channels,
-                    callback=callback
+                    callback=callback,
                 )
                 stream_created = True
             except Exception as e:
@@ -94,15 +106,24 @@ class PipeWireBackend(AudioBackend):
     def __init__(self):
         try:
             from pipewire_python.controller import Controller
+
             self.Controller = Controller
             self.controller = None
             self._recording_thread = None
             self._stop_recording = threading.Event()
         except ImportError:
-            raise ImportError("pipewire-python is not installed. Install with: pip install pipewire-python")
+            raise ImportError(
+                "pipewire-python is not installed. Install with: pip install pipewire-python"
+            )
 
-    def create_stream(self, samplerate: int, blocksize: int, device: Optional[int],
-                     channels: int, callback: Callable) -> bool:
+    def create_stream(
+        self,
+        samplerate: int,
+        blocksize: int,
+        device: Optional[int],
+        channels: int,
+        callback: Callable,
+    ) -> bool:
         """Create PipeWire recording stream."""
         # PipeWire-python uses a different API - we'll need to adapt it
         # For now, raise NotImplementedError as this needs more work
@@ -134,8 +155,10 @@ def get_audio_backend() -> AudioBackend:
         try:
             # Check if PipeWire is running
             import subprocess
-            result = subprocess.run(['pgrep', '-x', 'pipewire'],
-                                   capture_output=True, text=True)
+
+            result = subprocess.run(
+                ["pgrep", "-x", "pipewire"], capture_output=True, text=True
+            )
             if result.returncode == 0:
                 # PipeWire is running, but we'll still use SoundDevice for now
                 # since PipeWire backend isn't fully implemented

@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 
+
 class HookManager:
     def __init__(self, hooks_dir="hooks"):
         self.hooks_dir = hooks_dir
@@ -13,7 +14,7 @@ class HookManager:
         event_dir = os.path.join(self.hooks_dir, event_name)
         if not os.path.isdir(event_dir):
             return []
-        
+
         hooks = []
         # List all files in the directory
         for filename in os.listdir(event_dir):
@@ -21,20 +22,20 @@ class HookManager:
             # Check if it's a file and executable
             if os.path.isfile(filepath) and os.access(filepath, os.X_OK):
                 hooks.append(filepath)
-        
+
         return sorted(hooks)
 
     def run_hooks(self, event_name, payload=None, args=None):
         """
         Runs all hooks for a specific event.
-        
+
         Args:
             event_name (str): The name of the event (start, line, stop).
             payload (str): Optional data to pass to the hook's stdin.
             args (list): Optional list of arguments to pass to the hook script.
-            
+
         Returns:
-            int: A control code. 
+            int: A control code.
                  0 = Continue
                  100 = Stop Listening
                  101 = Terminate Application
@@ -45,7 +46,7 @@ class HookManager:
             return 0
 
         print(f"Running hooks for event '{event_name}'...", file=sys.stderr)
-        
+
         final_action = 0
 
         for hook in hooks:
@@ -54,29 +55,37 @@ class HookManager:
                 cmd = [hook]
                 if args:
                     cmd.extend(args)
-                    
+
                 process = subprocess.Popen(
                     cmd,
                     stdin=subprocess.PIPE if payload else None,
-                    stdout=sys.stdout, # Forward stdout to main stdout
-                    stderr=sys.stderr, # Forward stderr to main stderr
-                    text=True
+                    stdout=sys.stdout,  # Forward stdout to main stdout
+                    stderr=sys.stderr,  # Forward stderr to main stderr
+                    text=True,
                 )
-                
+
                 _, _ = process.communicate(input=payload)
-                
+
                 if process.returncode == 100:
-                    print(f"  Hook '{hook}' requested STOP LISTENING (100).", file=sys.stderr)
+                    print(
+                        f"  Hook '{hook}' requested STOP LISTENING (100).",
+                        file=sys.stderr,
+                    )
                     final_action = 100
                 elif process.returncode == 101:
-                    print(f"  Hook '{hook}' requested TERMINATE (101).", file=sys.stderr)
-                    return 101 # Immediate exit priority
+                    print(
+                        f"  Hook '{hook}' requested TERMINATE (101).", file=sys.stderr
+                    )
+                    return 101  # Immediate exit priority
                 elif process.returncode == 102:
                     print(f"  Hook '{hook}' requested ABORT (102).", file=sys.stderr)
-                    return 102 # Immediate abort priority
+                    return 102  # Immediate abort priority
                 elif process.returncode != 0:
-                    print(f"  Hook '{hook}' exited with code {process.returncode}.", file=sys.stderr)
-                    
+                    print(
+                        f"  Hook '{hook}' exited with code {process.returncode}.",
+                        file=sys.stderr,
+                    )
+
             except Exception as e:
                 print(f"  Error executing hook '{hook}': {e}", file=sys.stderr)
 
