@@ -6,6 +6,28 @@ from pathlib import Path
 APP_NAME = "vosk-wrapper-1000"
 
 
+def _load_user_config():
+    """Load user configuration if it exists.
+
+    Returns:
+        Dict with config data or empty dict if no config found
+    """
+    try:
+        import yaml
+
+        config_path = (
+            Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+            / APP_NAME
+            / "config.yaml"
+        )
+        if config_path.exists():
+            with open(config_path) as f:
+                return yaml.safe_load(f) or {}
+    except Exception:
+        pass
+    return {}
+
+
 class XDGPaths:
     """XDG paths manager class."""
 
@@ -109,8 +131,22 @@ def get_models_dir():
 
 
 def get_default_model_path():
-    """Get the default model path (first model found in models directory)."""
+    """Get the default model path.
+
+    Priority:
+    1. User config file (~/.config/vosk-wrapper-1000/config.yaml)
+    2. Legacy 'model' symlink (backwards compatibility)
+    3. First model found in models directory
+    4. Default fallback path
+    """
     models_dir = get_models_dir()
+
+    # Check user config file first
+    user_config = _load_user_config()
+    if user_config.get("model", {}).get("path"):
+        config_model_path = Path(user_config["model"]["path"])
+        if config_model_path.exists():
+            return config_model_path
 
     # Check if there's a 'model' symlink or directory (for backwards compatibility)
     if models_dir.parent.parent.parent.exists():
