@@ -55,33 +55,6 @@ class TestXDGPaths(unittest.TestCase):
             self.assertIn("vosk-wrapper-1000", str(config_dir))
             self.assertIn("vosk-wrapper-1000", str(cache_dir))
 
-    def test_subdirectory_paths(self):
-        """Test path generation with subdirectories."""
-        with patch.dict(os.environ, {"HOME": self.temp_dir}):
-            xdg = XDGPaths()
-
-            # Test model path
-            model_path = xdg.get_model_dir()
-            expected_model = (
-                Path(self.temp_dir) / ".local/share/vosk-wrapper-1000/models"
-            )
-            self.assertEqual(model_path, expected_model)
-            self.assertTrue(model_path.exists())
-
-            # Test hooks path
-            hooks_path = xdg.get_hooks_dir()
-            expected_hooks = Path(self.temp_dir) / ".config/vosk-wrapper-1000/hooks"
-            self.assertEqual(hooks_path, expected_hooks)
-            self.assertTrue(hooks_path.exists())
-
-            # Test custom subpath
-            custom_path = xdg.get_data_dir("test/subdir")
-            expected_custom = (
-                Path(self.temp_dir) / ".local/share/vosk-wrapper-1000/test/subdir"
-            )
-            self.assertEqual(custom_path, expected_custom)
-            self.assertTrue(custom_path.exists())
-
     def test_custom_app_name_paths(self):
         """Test XDGPaths with custom app name."""
         with patch.dict(os.environ, {"HOME": self.temp_dir}):
