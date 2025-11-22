@@ -45,4 +45,4 @@ jobs:
 
     - name: Run tests
       run: |
-        pytest tests/ -v --cov=vosk_wrapper_1000 --cov-report=term-missing -m "not integration"
+        pytest tests/unit/ -v --cov=vosk_wrapper_1000 --cov-report=term-missing
