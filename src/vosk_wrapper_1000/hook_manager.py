@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+from typing import List, Union
 
 
 class HookManager:
@@ -56,15 +57,44 @@ class HookManager:
                 if args:
                     cmd.extend(args)
 
-                process = subprocess.Popen(
-                    cmd,
-                    stdin=subprocess.PIPE if payload else None,
-                    stdout=sys.stdout,  # Forward stdout to main stdout
-                    stderr=sys.stderr,  # Forward stderr to main stderr
-                    text=True,
-                )
+                # Use a temporary file for stdin to avoid pipe buffering issues
+                # and to ensure the entire payload is available to the hook.
+                # This is cleaner than piping large strings via communicate().
+                import tempfile
 
-                _, _ = process.communicate(input=payload)
+                with tempfile.TemporaryFile(mode="w+") as tfile:
+                    if payload:
+                        tfile.write(payload)
+                        tfile.seek(0)
+                        stdin_arg = tfile
+                    else:
+                        stdin_arg = None
+
+                    # Prepare command
+                    cmd_target: Union[str, List[str]]
+                    if os.name == "posix":
+                        import shlex
+
+                        # On POSIX, use shell=True to handle scripts without shebangs
+                        # and use shlex.join to safely quote arguments.
+                        cmd_target = shlex.join(cmd)
+                        shell_mode = True
+                    else:
+                        # On Windows, shell=True allows executing .bat/.cmd files
+                        # and subprocess handles list-to-string conversion.
+                        cmd_target = cmd
+                        shell_mode = True
+
+                    process = subprocess.Popen(
+                        cmd_target,
+                        shell=shell_mode,
+                        stdin=stdin_arg,
+                        stdout=sys.stdout,
+                        stderr=sys.stderr,
+                        text=True,
+                    )
+
+                    process.wait()
 
                 if process.returncode == 100:
                     print(

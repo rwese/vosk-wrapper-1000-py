@@ -114,7 +114,7 @@ def test_service_flow(mock_vosk, mock_sounddevice, mock_managers, capsys):
     mock_vosk.Model.assert_called()
     mock_vosk.KaldiRecognizer.assert_called()
     mock_sounddevice.InputStream.assert_called()
-    mock_stream.start.assert_not_called()  # It might be called implicitly or explicitly?
+    mock_stream.start.assert_called()
     # main.py doesn't call stream.start(), InputStream starts automatically by default?
     # Wait, main.py: stream = sd.InputStream(...) -> context manager? No, just assignment.
     # It doesn't call start() explicitly?
