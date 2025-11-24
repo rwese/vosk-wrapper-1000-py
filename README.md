@@ -365,6 +365,29 @@ The application supports a flexible hook system to react to events. Hooks are ex
 -   **`hooks/line/`**: Triggered for every transcribed line. The text is passed via `stdin`.
 -   **`hooks/stop/`**: Triggered when listening stops.
 
+### JSON Hooks
+
+Hooks with `json` in their filename receive structured JSON data instead of plain text. This is useful for programmatic processing of transcript data.
+
+**JSON Format:**
+```json
+{
+  "type": "transcript",
+  "data": "transcribed text content",
+  "timestamp": 1640995200.123,
+  "event": "line|stop|start"
+}
+```
+
+**Example JSON Hook:**
+```bash
+# Create a JSON hook (note 'json' in filename)
+echo '#!/bin/bash' > ~/.config/vosk-wrapper-1000/hooks/line/01_json_processor.sh
+echo 'json_data=$(cat)' >> ~/.config/vosk-wrapper-1000/hooks/line/01_json_processor.sh
+echo 'echo "Received JSON: $json_data" >&2' >> ~/.config/vosk-wrapper-1000/hooks/line/01_json_processor.sh
+chmod +x ~/.config/vosk-wrapper-1000/hooks/line/01_json_processor.sh
+```
+
 ### Creating Hooks
 
 To create hooks, place executable scripts in the appropriate subdirectories:
