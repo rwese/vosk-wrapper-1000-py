@@ -20,6 +20,7 @@ class AudioProcessor:
         silence_threshold: float = 500.0,
         normalize_audio: bool = False,
         normalization_target_level: float = 0.3,
+        channels: int = 1,
     ):
         self.device_rate = device_rate
         self.model_rate = model_rate
@@ -29,6 +30,7 @@ class AudioProcessor:
         self.silence_threshold = silence_threshold
         self.normalize_audio = normalize_audio
         self.normalization_target_level = normalization_target_level
+        self.channels = channels
         self.soxr_resampler: Optional[soxr.ResampleStream] = None
 
         # Initialize soxr resampler if needed
@@ -37,11 +39,35 @@ class AudioProcessor:
                 in_rate=device_rate, out_rate=model_rate, num_channels=1, quality="HQ"
             )
 
+    def convert_to_mono(self, audio_data: np.ndarray) -> np.ndarray:
+        """Convert stereo or multi-channel audio to mono.
+
+        Args:
+            audio_data: Audio data as int16 numpy array
+                       If stereo: shape is (frames * 2,) with interleaved L/R samples
+                       If multi-channel: shape is (frames * channels,)
+
+        Returns:
+            Mono audio as int16 numpy array with shape (frames,)
+        """
+        if self.channels == 1:
+            # Already mono, return as-is
+            return audio_data
+
+        # Reshape interleaved multi-channel data to (frames, channels)
+        frames = len(audio_data) // self.channels
+        audio_multi = audio_data.reshape(frames, self.channels)
+
+        # Average all channels to create mono (prevents clipping better than just taking left)
+        audio_mono = np.mean(audio_multi, axis=1).astype(np.int16)
+
+        return audio_mono
+
     def has_audio(self, audio_data: np.ndarray) -> bool:
         """Check if audio data contains meaningful sound above silence threshold.
 
         Args:
-            audio_data: Audio data as numpy array
+            audio_data: Audio data as numpy array (mono)
 
         Returns:
             True if audio contains sound above threshold, False if silent
@@ -90,10 +116,18 @@ class AudioProcessor:
         return np.clip(normalized * 32768.0, -32768, 32767).astype(np.int16)
 
     def process_audio_chunk(self, audio_data: np.ndarray) -> np.ndarray:
-        """Process a chunk of audio data with noise filtering and resampling."""
-        processed_audio = audio_data.copy()
+        """Process a chunk of audio data with noise filtering and resampling.
 
-        # Apply normalization first if enabled (before noise reduction)
+        Args:
+            audio_data: Audio data as int16 numpy array (mono or multi-channel)
+
+        Returns:
+            Processed mono audio as int16 numpy array
+        """
+        # Convert to mono if needed (must be first step)
+        processed_audio = self.convert_to_mono(audio_data)
+
+        # Apply normalization if enabled (before noise reduction)
         if self.normalize_audio:
             processed_audio = self.normalize_audio_chunk(processed_audio)
 

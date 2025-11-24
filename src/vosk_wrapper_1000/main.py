@@ -911,13 +911,12 @@ def cmd_transcribe_file(args):
             print(f"  Sample rate: {framerate} Hz", file=sys.stderr)
             print(f"  Duration: {nframes / framerate:.2f} seconds", file=sys.stderr)
 
-            if channels != 1:
-                print(f"Error: Only mono (1 channel) WAV files are supported", file=sys.stderr)
-                sys.exit(1)
-
             if sampwidth != 2:
                 print(f"Error: Only 16-bit (2 byte) WAV files are supported", file=sys.stderr)
                 sys.exit(1)
+
+            if channels > 1:
+                print(f"  Note: Converting {channels}-channel audio to mono", file=sys.stderr)
 
             # Initialize audio processor
             audio_processor = AudioProcessor(
@@ -929,6 +928,7 @@ def cmd_transcribe_file(args):
                 silence_threshold=args.silence_threshold,
                 normalize_audio=args.normalize_audio,
                 normalization_target_level=args.normalize_target_level,
+                channels=channels,
             )
 
             # Create recognizer
