@@ -35,15 +35,15 @@ class AudioMonitor(Static):
     DEFAULT_CSS = """
     AudioMonitor {
         height: auto;
-        padding: 0.5;
+        padding: 1;
         border: solid $accent;
         background: $panel;
-        margin: 0.5 0;
+        margin: 1 0;
     }
 
     #audio-level-bar {
         height: 2;
-        margin: 0.5 0;
+        margin: 1 0;
     }
 
     .monitor-label {
