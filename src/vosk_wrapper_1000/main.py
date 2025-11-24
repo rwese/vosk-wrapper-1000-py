@@ -71,10 +71,10 @@ def set_vosk_log_level(log_level: str):
     # Map our log levels to Vosk log levels
     # Vosk levels: -1 = silent, 0 = errors only, 1 = warnings, 2 = info (verbose)
     vosk_level_map = {
-        "DEBUG": 2,      # Show all Vosk output including info
-        "INFO": 2,       # Show all Vosk output including info
-        "WARNING": 0,    # Show only Vosk errors
-        "ERROR": 0,      # Show only Vosk errors
+        "DEBUG": 2,  # Show all Vosk output including info
+        "INFO": 2,  # Show all Vosk output including info
+        "WARNING": 0,  # Show only Vosk errors
+        "ERROR": 0,  # Show only Vosk errors
         "CRITICAL": -1,  # Silence Vosk completely
     }
 
@@ -289,6 +289,11 @@ def run_service(args):
         silence_threshold=args.silence_threshold,
         normalize_audio=args.normalize_audio,
         normalization_target_level=args.normalize_target_level,
+        vad_hysteresis_chunks=getattr(args, "vad_hysteresis", 10),
+        noise_reduction_min_rms_ratio=getattr(
+            args, "noise_reduction_min_rms_ratio", 0.5
+        ),
+        pre_roll_duration=getattr(args, "pre_roll_duration", 1.0),
     )
 
     audio_recorder = AudioRecorder(
@@ -322,8 +327,9 @@ def run_service(args):
         device_id = None
         # Get default device sample rate
         import sounddevice as sd
+
         try:
-            default_device = sd.query_devices(kind='input')
+            default_device = sd.query_devices(kind="input")
             device_samplerate = int(default_device["default_samplerate"])
         except (OSError, TypeError) as e:
             logger.error(f"Failed to query default input device: {e}")
@@ -357,13 +363,16 @@ def run_service(args):
     # Initialize resampler now that we have the correct rates
     if audio_processor.device_rate != audio_processor.model_rate:
         import soxr
+
         audio_processor.soxr_resampler = soxr.ResampleStream(
             in_rate=audio_processor.device_rate,
             out_rate=audio_processor.model_rate,
             num_channels=1,
-            quality="HQ"
+            quality="HQ",
         )
-        logger.info(f"Initialized resampler: {audio_processor.device_rate} Hz → {audio_processor.model_rate} Hz")
+        logger.info(
+            f"Initialized resampler: {audio_processor.device_rate} Hz → {audio_processor.model_rate} Hz"
+        )
 
     # Setup audio recorder with model rate (record processed audio sent to Vosk)
     if args.record_audio:
@@ -371,7 +380,10 @@ def run_service(args):
         if not audio_recorder.start_recording():
             print(f"Error opening recording file {args.record_audio}", file=sys.stderr)
             sys.exit(1)
-        print(f"Recording processed audio at {model_sample_rate} Hz to: {args.record_audio}", file=sys.stderr)
+        print(
+            f"Recording processed audio at {model_sample_rate} Hz to: {args.record_audio}",
+            file=sys.stderr,
+        )
 
     # Write PID file
     instance_name = args.name
@@ -386,6 +398,7 @@ def run_service(args):
     set_vosk_log_level(log_level)
 
     import vosk
+
     model = vosk.Model(str(args.model))
 
     # Create recognizer with optional grammar
@@ -433,6 +446,9 @@ def run_service(args):
     transcript_buffer: List[str] = []
     callback_counter = [0]  # Use list to allow modification in nested function
 
+    # Special marker to indicate speech end
+    SPEECH_END_MARKER = b"SPEECH_END"
+
     def audio_callback(indata, frames, time, status):
         """Audio callback for sounddevice."""
         if status:
@@ -450,21 +466,27 @@ def run_service(args):
                         file=sys.stderr,
                     )
 
-                # Check if audio contains meaningful sound
-                if not audio_processor.has_audio(indata):
-                    # Skip forwarding silent audio to Vosk to reduce CPU load
-                    logger.debug("Skipping silent audio chunk")
-                    return
+                # Process audio with VAD and pre-roll buffering
+                # Returns empty list if silence, or list of chunks to process if speech detected
+                audio_chunks = audio_processor.process_with_vad(indata)
 
-                # Process audio through our pipeline (noise filtering + resampling)
-                processed_audio = audio_processor.process_audio_chunk(indata)
+                # Check if speech just ended
+                if audio_processor.check_and_reset_speech_end():
+                    # Put special marker to indicate speech end
+                    try:
+                        audio_queue.put_nowait(SPEECH_END_MARKER)
+                    except queue.Full:
+                        pass  # Skip if queue is full
 
-                # Save to recording file if enabled (record exactly what goes to Vosk)
-                if args.record_audio:
-                    audio_recorder.write_audio(processed_audio)
+                # Process each chunk returned (includes pre-roll audio when speech starts)
+                for processed_audio in audio_chunks:
+                    # Save to recording file if enabled (record exactly what goes to Vosk)
+                    if args.record_audio:
+                        audio_recorder.write_audio(processed_audio)
 
-                # Queue for Vosk processing only if audio is detected
-                audio_queue.put_nowait(bytes(processed_audio))
+                    # Queue for Vosk processing
+                    audio_queue.put_nowait(bytes(processed_audio))
+
             except queue.Full:
                 # Drop audio frames if queue is full (prevents overflow)
                 pass
@@ -556,7 +578,9 @@ def run_service(args):
                             signal_manager.set_running(False)
                             signal_manager.set_listening(False)
 
-                    hook_manager.run_hooks("start", async_mode=True, callback=handle_start_hook_result)
+                    hook_manager.run_hooks(
+                        "start", async_mode=True, callback=handle_start_hook_result
+                    )
 
                 except Exception as e:
                     print(f"Error starting stream: {e}", file=sys.stderr)
@@ -573,6 +597,9 @@ def run_service(args):
                 stream.close()
                 stream = None
                 print("Microphone stream stopped.", file=sys.stderr)
+
+                # Reset VAD state for next listening session
+                audio_processor.reset_vad_state()
 
                 # Broadcast status change event
                 if ipc_server:
@@ -603,7 +630,12 @@ def run_service(args):
                         signal_manager.set_running(False)
                         signal_manager.set_listening(False)
 
-                hook_manager.run_hooks("stop", payload=full_transcript, async_mode=True, callback=handle_stop_hook_result)
+                hook_manager.run_hooks(
+                    "stop",
+                    payload=full_transcript,
+                    async_mode=True,
+                    callback=handle_stop_hook_result,
+                )
 
                 transcript_buffer = []  # Clear buffer
                 rec.Reset()  # Reset recognizer for next session
@@ -612,6 +644,57 @@ def run_service(args):
             if signal_manager.is_listening() and stream is not None:
                 try:
                     data = audio_queue.get(timeout=0.1)
+
+                    # Check for speech end marker
+                    if data == SPEECH_END_MARKER:
+                        # Speech ended - finalize the current result
+                        final_result = json.loads(rec.FinalResult())
+                        final_text = final_result.get("text", "")
+                        if final_text:
+                            print(final_text)  # Output final recognition
+                            sys.stdout.flush()
+                            transcript_buffer.append(final_text)
+
+                            # Broadcast final transcription to IPC clients
+                            if ipc_server:
+                                ipc_server.broadcast_event(
+                                    {
+                                        "type": "transcription",
+                                        "result_type": "final",
+                                        "text": final_text,
+                                        "confidence": final_result.get(
+                                            "confidence", 1.0
+                                        ),
+                                        "timestamp": time.time(),
+                                        "session_id": session_id,
+                                    }
+                                )
+
+                            # Execute LINE hooks with async callback
+                            full_context = "\n".join(transcript_buffer)
+
+                            def handle_line_hook_result(code):
+                                if code == 100:
+                                    signal_manager.set_listening(False)
+                                elif code == 101:
+                                    signal_manager.set_running(False)
+                                    signal_manager.set_listening(False)
+                                elif code == 102:
+                                    signal_manager.set_running(False)
+                                    signal_manager.set_listening(False)
+
+                            hook_manager.run_hooks(
+                                "line",
+                                payload=full_context,
+                                args=[final_text],
+                                async_mode=True,
+                                callback=handle_line_hook_result,
+                            )
+
+                        # Reset recognizer for next utterance
+                        rec.Reset()
+                        transcript_buffer = []  # Clear buffer for next utterance
+                        continue
 
                     # Debug: Log queue processing
                     if callback_counter[0] % 100 == 1:  # Log occasionally
@@ -666,8 +749,11 @@ def run_service(args):
                                     signal_manager.set_listening(False)
 
                             hook_manager.run_hooks(
-                                "line", payload=full_context, args=[text],
-                                async_mode=True, callback=handle_line_hook_result
+                                "line",
+                                payload=full_context,
+                                args=[text],
+                                async_mode=True,
+                                callback=handle_line_hook_result,
                             )
                     else:
                         # Broadcast partial result if enabled
@@ -838,11 +924,74 @@ def cmd_send(args):
 
 
 def cmd_stream(args):
-    """Stream live transcription from a running instance."""
+    """Stream live transcription (automatically starts/stops daemon if needed)."""
+    import subprocess
+    import time
     from .ipc_client import ConnectionError as IPCConnectionError
     from .ipc_client import IPCClient, get_socket_path
+    from .pid_manager import list_instances
 
     socket_path = get_socket_path(args.name)
+    daemon_started_by_us = False
+    daemon_proc = None
+
+    # Check if instance is already running
+    running_instances = list_instances()
+    instance_running = any(name == args.name for name, _ in running_instances)
+
+    if not instance_running:
+        if args.no_auto_start:
+            print(f"Error: Instance '{args.name}' is not running", file=sys.stderr)
+            print("Start the daemon manually with:", file=sys.stderr)
+            print(f"  vosk-wrapper-1000 daemon --name {args.name}", file=sys.stderr)
+            sys.exit(1)
+
+        # Auto-start the daemon
+        print(f"Starting daemon instance '{args.name}'...", file=sys.stderr)
+        daemon_cmd = [
+            sys.executable,
+            "-m",
+            "vosk_wrapper_1000.main",
+            "daemon",
+            "--name",
+            args.name,
+            "--model",
+            args.model,
+        ]
+
+        if args.device:
+            daemon_cmd.extend(["--device", args.device])
+
+        try:
+            daemon_proc = subprocess.Popen(
+                daemon_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
+            daemon_started_by_us = True
+
+            # Wait for daemon to be ready
+            print("Waiting for daemon to initialize...", file=sys.stderr)
+            max_retries = 15
+            for attempt in range(max_retries):
+                time.sleep(1)
+                try:
+                    with IPCClient(socket_path, timeout=1.0) as test_client:
+                        test_client.send_command("status")
+                        break
+                except:
+                    if attempt == max_retries - 1:
+                        print(
+                            "Failed to connect to daemon after startup", file=sys.stderr
+                        )
+                        if daemon_proc:
+                            daemon_proc.terminate()
+                        sys.exit(1)
+                    continue
+
+            print(f"Daemon started successfully", file=sys.stderr)
+
+        except Exception as e:
+            print(f"Failed to start daemon: {e}", file=sys.stderr)
+            sys.exit(1)
 
     try:
         with IPCClient(socket_path) as client:
@@ -853,8 +1002,30 @@ def cmd_stream(args):
             print(f"Streaming from instance '{args.name}' (Ctrl+C to stop)...")
             print()
 
+            # Check if already listening, start if not
+            try:
+                status = client.send_command("status")
+                if not status.get("listening", False):
+                    print("Starting listening...", file=sys.stderr)
+                    client.send_command("start")
+            except:
+                pass  # Ignore status check errors
+
+            start_time = time.time()
+            last_activity = start_time
+
             # Stream events
             for event in client.stream_events():
+                current_time = time.time()
+
+                # Check for timeout when auto-started
+                if daemon_started_by_us and current_time - start_time > args.timeout:
+                    print(
+                        f"\nTimeout reached ({args.timeout}s), stopping...",
+                        file=sys.stderr,
+                    )
+                    break
+
                 event_type = event.get("type")
 
                 if event_type == "ready":
@@ -873,6 +1044,12 @@ def cmd_stream(args):
                         if not args.no_partials:
                             print("\r" + " " * 80 + "\r", end="")  # Clear partial line
                         print(f"[FINAL] {text}")
+                        last_activity = current_time
+
+                        # If auto-started and we got a final result, we can stop after a brief pause
+                        if daemon_started_by_us and current_time - last_activity > 2.0:
+                            print("Speech completed, stopping...", file=sys.stderr)
+                            break
 
                 elif event_type == "status_change":
                     event_name = event.get("event", "")
@@ -880,17 +1057,43 @@ def cmd_stream(args):
                         print("[STATUS] Listening started")
                     elif event_name == "listening_stopped":
                         print("[STATUS] Listening stopped")
+                        if daemon_started_by_us:
+                            break
+
+            # Stop listening
+            try:
+                client.send_command("stop")
+            except:
+                pass  # Ignore stop errors
 
     except IPCConnectionError:
         print(f"Error: Cannot connect to instance '{args.name}'", file=sys.stderr)
         print(f"Socket: {socket_path}", file=sys.stderr)
-        print("Is the daemon running? Try: vosk-wrapper-1000 list", file=sys.stderr)
+        if not daemon_started_by_us:
+            print("Is the daemon running? Try: vosk-wrapper-1000 list", file=sys.stderr)
         sys.exit(1)
     except KeyboardInterrupt:
-        print("\n\nStream interrupted by user")
+        print("\n\nStream interrupted by user", file=sys.stderr)
     except Exception as e:
         print(f"Unexpected error: {e}", file=sys.stderr)
         sys.exit(1)
+
+    finally:
+        # Clean up daemon if we started it
+        if daemon_started_by_us:
+            try:
+                from .pid_manager import send_signal_to_instance
+
+                send_signal_to_instance(args.name, signal.SIGTERM)
+                print(f"Terminated auto-started daemon '{args.name}'", file=sys.stderr)
+            except:
+                pass  # Ignore cleanup errors
+
+            if daemon_proc:
+                try:
+                    daemon_proc.wait(timeout=5.0)
+                except:
+                    daemon_proc.kill()
 
 
 def cmd_transcribe_file(args):
@@ -921,6 +1124,7 @@ def cmd_transcribe_file(args):
 
     print(f"Loading model from {args.model}...", file=sys.stderr)
     import vosk
+
     model = vosk.Model(str(args.model))
 
     # Open WAV file
@@ -939,11 +1143,17 @@ def cmd_transcribe_file(args):
             print(f"  Duration: {nframes / framerate:.2f} seconds", file=sys.stderr)
 
             if sampwidth != 2:
-                print(f"Error: Only 16-bit (2 byte) WAV files are supported", file=sys.stderr)
+                print(
+                    f"Error: Only 16-bit (2 byte) WAV files are supported",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
 
             if channels > 1:
-                print(f"  Note: Converting {channels}-channel audio to mono", file=sys.stderr)
+                print(
+                    f"  Note: Converting {channels}-channel audio to mono",
+                    file=sys.stderr,
+                )
 
             # Initialize audio processor
             audio_processor = AudioProcessor(
@@ -951,11 +1161,17 @@ def cmd_transcribe_file(args):
                 model_rate=model_sample_rate,
                 noise_filter_enabled=not args.disable_noise_reduction,
                 noise_reduction_strength=args.noise_reduction_level,
-                stationary_noise=args.stationary_noise and not args.non_stationary_noise,
+                stationary_noise=args.stationary_noise
+                and not args.non_stationary_noise,
                 silence_threshold=args.silence_threshold,
                 normalize_audio=args.normalize_audio,
                 normalization_target_level=args.normalize_target_level,
                 channels=channels,
+                vad_hysteresis_chunks=getattr(args, "vad_hysteresis", 10),
+                noise_reduction_min_rms_ratio=getattr(
+                    args, "noise_reduction_min_rms_ratio", 0.5
+                ),
+                pre_roll_duration=getattr(args, "pre_roll_duration", 1.0),
             )
 
             # Create recognizer
@@ -977,11 +1193,20 @@ def cmd_transcribe_file(args):
             if args.record_audio:
                 audio_recorder = AudioRecorder(args.record_audio, model_sample_rate)
                 if not audio_recorder.start_recording():
-                    print(f"Error opening recording file {args.record_audio}", file=sys.stderr)
+                    print(
+                        f"Error opening recording file {args.record_audio}",
+                        file=sys.stderr,
+                    )
                     sys.exit(1)
-                print(f"Recording processed audio to: {args.record_audio}", file=sys.stderr)
+                print(
+                    f"Recording processed audio to: {args.record_audio}",
+                    file=sys.stderr,
+                )
 
-            print(f"Processing audio (model expects {model_sample_rate} Hz)...", file=sys.stderr)
+            print(
+                f"Processing audio (model expects {model_sample_rate} Hz)...",
+                file=sys.stderr,
+            )
 
             # Process audio in chunks
             chunk_size = 4000  # Process 4000 frames at a time
@@ -995,12 +1220,15 @@ def cmd_transcribe_file(args):
                 # Convert bytes to numpy array
                 audio_chunk = np.frombuffer(data, dtype=np.int16)
 
-                # Check if audio contains meaningful sound
-                if not audio_processor.has_audio(audio_chunk):
+                # Convert to mono first (silence detection must be done before other processing)
+                mono_chunk = audio_processor.convert_to_mono(audio_chunk)
+
+                # Check if audio contains meaningful sound (silence detection first)
+                if not audio_processor.has_audio(mono_chunk):
                     continue
 
-                # Process audio through pipeline
-                processed_audio = audio_processor.process_audio_chunk(audio_chunk)
+                # Process audio through pipeline (mono conversion already done)
+                processed_audio = audio_processor._process_mono_audio_chunk(mono_chunk)
 
                 # Save to recording file if enabled
                 if audio_recorder:
@@ -1025,7 +1253,10 @@ def cmd_transcribe_file(args):
                 audio_recorder.stop_recording()
 
             # Print results
-            print(f"\nTranscription complete. Total lines: {len(transcript_lines)}", file=sys.stderr)
+            print(
+                f"\nTranscription complete. Total lines: {len(transcript_lines)}",
+                file=sys.stderr,
+            )
             print(f"--- Transcript ---", file=sys.stderr)
             for line in transcript_lines:
                 print(line)
@@ -1039,6 +1270,7 @@ def cmd_transcribe_file(args):
     except Exception as e:
         print(f"Unexpected error: {e}", file=sys.stderr)
         import traceback
+
         traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 
@@ -1156,10 +1388,28 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
         help="Use non-stationary noise reduction (slower but more adaptive, default: True)",
     )
     daemon_parser.add_argument(
+        "--noise-reduction-min-rms-ratio",
+        type=float,
+        default=0.5,
+        help="Minimum RMS ratio after noise reduction (0.0-1.0, default: 0.5). If noise reduction reduces RMS below this ratio, it will be skipped.",
+    )
+    daemon_parser.add_argument(
         "--silence-threshold",
         type=float,
-        default=100.0,
-        help="RMS threshold for audio detection - audio below this is skipped (default: 100.0)",
+        default=50.0,
+        help="RMS threshold for audio detection - audio below this is skipped (default: 50.0)",
+    )
+    daemon_parser.add_argument(
+        "--vad-hysteresis",
+        type=int,
+        default=10,
+        help="Number of consecutive silent chunks before exiting speech mode (default: 10)",
+    )
+    daemon_parser.add_argument(
+        "--pre-roll-duration",
+        type=float,
+        default=1.0,
+        help="Duration in seconds of audio to buffer before speech detection (default: 1.0)",
     )
     daemon_parser.add_argument(
         "--normalize-audio",
@@ -1222,7 +1472,7 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
 
     # IPC stream command
     stream_parser = subparsers.add_parser(
-        "stream", help="Stream live transcription from a running instance"
+        "stream", help="Stream live transcription (automatically starts/stops daemon)"
     )
     stream_parser.add_argument(
         "--name", "-n", default="default", help="Instance name (default: default)"
@@ -1232,10 +1482,40 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
         action="store_true",
         help="Don't show partial results, only final transcriptions",
     )
+    stream_parser.add_argument(
+        "--auto-start",
+        action="store_true",
+        default=True,
+        help="Automatically start daemon if not running (default: enabled)",
+    )
+    stream_parser.add_argument(
+        "--no-auto-start",
+        action="store_true",
+        help="Don't automatically start daemon, require it to be running already",
+    )
+    stream_parser.add_argument(
+        "--model",
+        type=str,
+        default=default_model,
+        help=f"Path to Vosk model directory (used when auto-starting daemon, default: {default_model})",
+    )
+    stream_parser.add_argument(
+        "--device",
+        type=str,
+        default=None,
+        help="Input device ID or Name substring (used when auto-starting daemon)",
+    )
+    stream_parser.add_argument(
+        "--timeout",
+        type=float,
+        default=30.0,
+        help="Maximum time to wait for speech in seconds when auto-starting (default: 30.0)",
+    )
 
     # Transcribe file command
     transcribe_parser = subparsers.add_parser(
-        "transcribe-file", help="Transcribe a WAV file using the audio processing pipeline"
+        "transcribe-file",
+        help="Transcribe a WAV file using the audio processing pipeline",
     )
     transcribe_parser.add_argument(
         "file", help="Path to WAV file to transcribe (must be mono, 16-bit)"
@@ -1271,10 +1551,28 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
         help="Use non-stationary noise reduction (slower but more adaptive, default: True)",
     )
     transcribe_parser.add_argument(
+        "--noise-reduction-min-rms-ratio",
+        type=float,
+        default=0.5,
+        help="Minimum RMS ratio after noise reduction (0.0-1.0, default: 0.5). If noise reduction reduces RMS below this ratio, it will be skipped.",
+    )
+    transcribe_parser.add_argument(
         "--silence-threshold",
         type=float,
-        default=100.0,
-        help="RMS threshold for audio detection - audio below this is skipped (default: 100.0)",
+        default=50.0,
+        help="RMS threshold for audio detection - audio below this is skipped (default: 50.0)",
+    )
+    transcribe_parser.add_argument(
+        "--vad-hysteresis",
+        type=int,
+        default=10,
+        help="Number of consecutive silent chunks before exiting speech mode (default: 10)",
+    )
+    transcribe_parser.add_argument(
+        "--pre-roll-duration",
+        type=float,
+        default=1.0,
+        help="Duration in seconds of audio to buffer before speech detection (default: 1.0)",
     )
     transcribe_parser.add_argument(
         "--normalize-audio",

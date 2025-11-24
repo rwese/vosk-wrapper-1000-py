@@ -19,13 +19,9 @@ TRANSCRIPT_AUDIO = ASSETS_DIR / "transcript_test_1_input_stereo_44100hz_16bit_pc
 EXPECTED_TRANSCRIPT = ASSETS_DIR / "transcript_test_1_transcript.txt"
 
 
+@pytest.mark.skipif(not TRANSCRIPT_AUDIO.exists(), reason="Test audio file not found")
 @pytest.mark.skipif(
-    not TRANSCRIPT_AUDIO.exists(),
-    reason="Test audio file not found"
-)
-@pytest.mark.skipif(
-    not EXPECTED_TRANSCRIPT.exists(),
-    reason="Expected transcript file not found"
+    not EXPECTED_TRANSCRIPT.exists(), reason="Expected transcript file not found"
 )
 def test_transcribe_file_e2e(ensure_test_model_downloaded):
     """Test the transcribe-file command end-to-end with real audio."""
@@ -76,13 +72,10 @@ def test_transcribe_file_e2e(ensure_test_model_downloaded):
     )
 
 
-@pytest.mark.skipif(
-    not TRANSCRIPT_AUDIO.exists(),
-    reason="Test audio file not found"
-)
+@pytest.mark.skipif(not TRANSCRIPT_AUDIO.exists(), reason="Test audio file not found")
 def test_transcribe_file_with_silence_threshold(ensure_test_model_downloaded):
     """Test transcribe-file with different silence threshold values."""
-    # Test with default threshold (100.0)
+    # Test with default threshold (50.0)
     cmd_default = [
         sys.executable,
         "-m",
@@ -100,9 +93,11 @@ def test_transcribe_file_with_silence_threshold(ensure_test_model_downloaded):
         cwd=PROJECT_ROOT,
     )
 
-    assert result_default.returncode == 0, f"Default threshold failed: {result_default.stderr}"
+    assert result_default.returncode == 0, (
+        f"Default threshold failed: {result_default.stderr}"
+    )
 
-    # Test with aggressive threshold (50.0)
+    # Test with aggressive threshold (25.0)
     cmd_aggressive = [
         sys.executable,
         "-m",
@@ -112,7 +107,7 @@ def test_transcribe_file_with_silence_threshold(ensure_test_model_downloaded):
         "--model",
         "vosk-model-en-gb-0.1",
         "--silence-threshold",
-        "50.0",
+        "25.0",
     ]
 
     result_aggressive = subprocess.run(
@@ -122,7 +117,9 @@ def test_transcribe_file_with_silence_threshold(ensure_test_model_downloaded):
         cwd=PROJECT_ROOT,
     )
 
-    assert result_aggressive.returncode == 0, f"Aggressive threshold failed: {result_aggressive.stderr}"
+    assert result_aggressive.returncode == 0, (
+        f"Aggressive threshold failed: {result_aggressive.stderr}"
+    )
 
     # Both should produce output (transcripts go to stdout)
     assert result_default.stdout.strip(), "Default threshold produced no output"
@@ -150,13 +147,12 @@ def test_transcribe_file_with_silence_threshold(ensure_test_model_downloaded):
 
     assert result_high.returncode == 0, f"High threshold failed: {result_high.stderr}"
     # With very high threshold, transcript should be empty
-    assert "Total lines: 0" in result_high.stderr, "High threshold should skip all audio"
+    assert "Total lines: 0" in result_high.stderr, (
+        "High threshold should skip all audio"
+    )
 
 
-@pytest.mark.skipif(
-    not TRANSCRIPT_AUDIO.exists(),
-    reason="Test audio file not found"
-)
+@pytest.mark.skipif(not TRANSCRIPT_AUDIO.exists(), reason="Test audio file not found")
 def test_transcribe_file_with_noise_reduction(ensure_test_model_downloaded):
     """Test transcribe-file with noise reduction options."""
     # Test with noise reduction enabled (default)
@@ -200,7 +196,9 @@ def test_transcribe_file_with_noise_reduction(ensure_test_model_downloaded):
         cwd=PROJECT_ROOT,
     )
 
-    assert result_no_nr.returncode == 0, f"No noise reduction failed: {result_no_nr.stderr}"
+    assert result_no_nr.returncode == 0, (
+        f"No noise reduction failed: {result_no_nr.stderr}"
+    )
 
     # Both should produce output (transcripts go to stdout)
     assert result_nr.stdout.strip(), "Noise reduction enabled produced no output"
