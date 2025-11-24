@@ -284,7 +284,15 @@ def run_service(args):
     device_info = device_manager.get_device_info(args.device)
     if device_info is None:
         device_id = None
-        device_samplerate = None
+        # Get default device sample rate
+        import sounddevice as sd
+        try:
+            default_device = sd.query_devices(kind='input')
+            device_samplerate = int(default_device["default_samplerate"])
+        except (OSError, TypeError) as e:
+            logger.error(f"Failed to query default input device: {e}")
+            logger.error("No default input device available")
+            sys.exit(1)
     else:
         device_id = device_info["id"]
         device_samplerate = int(device_info["default_samplerate"])
@@ -480,16 +488,18 @@ def run_service(args):
                             }
                         )
 
-                    # Execute START hooks
-                    action = hook_manager.run_hooks("start")
-                    if action == 100:
-                        signal_manager.set_listening(False)
-                    elif action == 101:
-                        signal_manager.set_running(False)
-                        signal_manager.set_listening(False)
-                    elif action == 102:
-                        signal_manager.set_running(False)
-                        signal_manager.set_listening(False)
+                    # Execute START hooks with async callback
+                    def handle_start_hook_result(code):
+                        if code == 100:
+                            signal_manager.set_listening(False)
+                        elif code == 101:
+                            signal_manager.set_running(False)
+                            signal_manager.set_listening(False)
+                        elif code == 102:
+                            signal_manager.set_running(False)
+                            signal_manager.set_listening(False)
+
+                    hook_manager.run_hooks("start", async_mode=True, callback=handle_start_hook_result)
 
                 except Exception as e:
                     print(f"Error starting stream: {e}", file=sys.stderr)
@@ -528,17 +538,18 @@ def run_service(args):
                 # Process accumulated transcript
                 full_transcript = "\n".join(transcript_buffer)
 
-                # Execute STOP hooks
-                action = hook_manager.run_hooks("stop", payload=full_transcript)
+                # Execute STOP hooks with async callback
+                def handle_stop_hook_result(code):
+                    if code == 101:
+                        signal_manager.set_running(False)
+                    elif code == 102:
+                        signal_manager.set_running(False)
+                        signal_manager.set_listening(False)
+
+                hook_manager.run_hooks("stop", payload=full_transcript, async_mode=True, callback=handle_stop_hook_result)
 
                 transcript_buffer = []  # Clear buffer
                 rec.Reset()  # Reset recognizer for next session
-
-                if action == 101:
-                    signal_manager.set_running(False)
-                elif action == 102:
-                    signal_manager.set_running(False)
-                    signal_manager.set_listening(False)
 
             # Process audio if listening
             if signal_manager.is_listening() and stream is not None:
@@ -584,19 +595,23 @@ def run_service(args):
                                     }
                                 )
 
-                            # Execute LINE hooks
+                            # Execute LINE hooks with async callback
                             full_context = "\n".join(transcript_buffer)
-                            action = hook_manager.run_hooks(
-                                "line", payload=full_context, args=[text]
+
+                            def handle_line_hook_result(code):
+                                if code == 100:
+                                    signal_manager.set_listening(False)
+                                elif code == 101:
+                                    signal_manager.set_running(False)
+                                    signal_manager.set_listening(False)
+                                elif code == 102:
+                                    signal_manager.set_running(False)
+                                    signal_manager.set_listening(False)
+
+                            hook_manager.run_hooks(
+                                "line", payload=full_context, args=[text],
+                                async_mode=True, callback=handle_line_hook_result
                             )
-                            if action == 100:
-                                signal_manager.set_listening(False)
-                            elif action == 101:
-                                signal_manager.set_running(False)
-                                signal_manager.set_listening(False)
-                            elif action == 102:
-                                signal_manager.set_running(False)
-                                signal_manager.set_listening(False)
                     else:
                         # Broadcast partial result if enabled
                         if ipc_server and config.ipc.send_partials:
@@ -644,7 +659,9 @@ def run_service(args):
         ) and not signal_manager.is_running():
             full_transcript = "\n".join(transcript_buffer)
             print("Running final stop hooks...", file=sys.stderr)
-            hook_manager.run_hooks("stop", payload=full_transcript)
+            hook_manager.run_hooks("stop", payload=full_transcript, async_mode=True)
+            # Wait for final hooks to complete (with timeout)
+            hook_manager.wait_for_hooks(timeout=10.0)
 
         # Clean up PID file
         remove_pid(instance_name)
