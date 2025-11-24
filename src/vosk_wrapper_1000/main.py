@@ -1408,8 +1408,8 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
     daemon_parser.add_argument(
         "--pre-roll-duration",
         type=float,
-        default=1.0,
-        help="Duration in seconds of audio to buffer before speech detection (default: 1.0)",
+        default=2.0,
+        help="Duration in seconds of audio to buffer before speech detection (default: 2.0)",
     )
     daemon_parser.add_argument(
         "--normalize-audio",
@@ -1571,8 +1571,8 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
     transcribe_parser.add_argument(
         "--pre-roll-duration",
         type=float,
-        default=1.0,
-        help="Duration in seconds of audio to buffer before speech detection (default: 1.0)",
+        default=2.0,
+        help="Duration in seconds of audio to buffer before speech detection (default: 2.0)",
     )
     transcribe_parser.add_argument(
         "--normalize-audio",

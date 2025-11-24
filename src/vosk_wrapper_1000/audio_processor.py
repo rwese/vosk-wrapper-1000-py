@@ -22,7 +22,7 @@ class AudioProcessor:
         normalize_audio: bool = False,
         normalization_target_level: float = 0.3,
         channels: int = 1,
-        pre_roll_duration: float = 1.0,
+        pre_roll_duration: float = 2.0,
         vad_hysteresis_chunks: int = 10,
         noise_reduction_min_rms_ratio: float = 0.5,
     ):
