@@ -26,14 +26,10 @@ python -m pytest tests/integration/
 # Run all tests
 python -m pytest tests/
 
-# Run individual test files (legacy)
-python tests/test_audio.py --device "AnkerWork" --duration 5
-python tests/test_full_flow.py
-python tests/test_signals.py
-
-# Run workflow tests
-./test_workflow.sh
-./test_manual.sh
+# Run specific test modules
+python -m pytest tests/unit/test_audio_processor.py -v
+python -m pytest tests/unit/test_hook_manager.py -v
+python -m pytest tests/integration/ -v
 ```
 
 ## Directory Structure
