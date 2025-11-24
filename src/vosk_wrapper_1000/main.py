@@ -20,7 +20,7 @@ from vosk_core.device_manager import DeviceManager
 from .hook_manager import HookManager
 from .ipc_server import IPCServer
 from vosk_core.model_manager import ModelManager
-from .pid_manager import remove_pid, write_pid
+from .pid_manager import remove_pid, send_signal_to_instance, write_pid
 from .signal_manager import SignalManager
 from vosk_core.xdg_paths import get_hooks_dir
 
@@ -842,6 +842,8 @@ def cmd_terminate(args):
 
 def cmd_list(args):
     """List all running instances."""
+    from .pid_manager import list_instances
+
     instances = list_instances()
     if not instances:
         print("No running instances found")
