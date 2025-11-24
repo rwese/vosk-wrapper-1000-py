@@ -23,7 +23,7 @@ dependencies = [
 [project.scripts]
 vosk-wrapper-1000 = "vosk_wrapper_1000.main:main"
 vosk-download-model-1000 = "vosk_core.download_model:main"
-vosk-transcribe = "vosk_transcribe:main"
+vosk-transcribe-file = "vosk_transcribe.main:main"
 
 [tool.hatch.build.targets.wheel]
 only-include = [

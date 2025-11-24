@@ -36,7 +36,7 @@ uv tool install git+https://github.com/rwese/vosk-wrapper-1000-py
 pip install git+https://github.com/rwese/vosk-wrapper-1000-py
 ```
 
-After installation, the commands `vosk-wrapper-1000`, `vosk-download-model-1000`, and `vosk-transcribe` will be available in your PATH.
+After installation, the commands `vosk-wrapper-1000`, `vosk-download-model-1000`, and `vosk-transcribe-file` will be available in your PATH.
 
 ## Package Structure
 
@@ -140,16 +140,16 @@ If you installed the package, use the commands directly:
 4.  **Transcribe Audio Files**
     ```bash
     # Transcribe a single audio file (prints to stdout)
-    vosk-transcribe audio.wav
+    vosk-transcribe-file audio.wav
 
     # Save transcription to a file
-    vosk-transcribe audio.wav --output transcript.txt
+    vosk-transcribe-file audio.wav --output transcript.txt
 
     # Use a specific model
-    vosk-transcribe audio.mp3 --model ~/.local/share/vosk-wrapper-1000/models/vosk-model-en-us-0.22 --output result.txt
+    vosk-transcribe-file audio.mp3 --model ~/.local/share/vosk-wrapper-1000/models/vosk-model-en-us-0.22 --output result.txt
 
     # Get help
-    vosk-transcribe --help
+    vosk-transcribe-file --help
     ```
 
 ### Running from Source with uvx
@@ -168,7 +168,7 @@ If you cloned the repository and want to run without installing:
 2.  **Transcribe Audio Files**
     ```bash
     # Transcribe a file
-    uvx --from . vosk-transcribe audio.wav --output transcript.txt
+    uvx --from . vosk-transcribe-file audio.wav --output transcript.txt
     ```
 
 3.  **Run and Control the Application**
