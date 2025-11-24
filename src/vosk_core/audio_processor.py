@@ -402,3 +402,65 @@ class AudioProcessor:
         self.in_speech = False
         self.consecutive_silent_chunks = 0
         self.speech_just_ended = False
+
+    def process_webrtc_audio(
+        self, audio_bytes: bytes, sample_rate: int, channels: int
+    ) -> List[np.ndarray]:
+        """Process audio from WebRTC stream.
+
+        Args:
+            audio_bytes: Raw audio data as bytes (16-bit PCM)
+            sample_rate: Sample rate of the audio
+            channels: Number of audio channels
+
+        Returns:
+            List of processed audio chunks ready for speech recognition
+        """
+        try:
+            # Convert bytes to numpy array
+            audio_data = np.frombuffer(audio_bytes, dtype=np.int16)
+
+            # Convert to mono if needed
+            if channels > 1:
+                # Reshape to (frames, channels) and average
+                frames = len(audio_data) // channels
+                audio_multi = audio_data.reshape(frames, channels)
+                audio_data = np.mean(audio_multi, axis=1).astype(np.int16)
+
+            # Resample if needed
+            if sample_rate != self.model_rate:
+                # Convert to float for resampling
+                audio_float = audio_data.astype(np.float32) / 32768.0
+
+                # Resample to model rate
+                if self.soxr_resampler:
+                    # Create a temporary resampler for WebRTC audio
+                    webrtc_resampler = soxr.ResampleStream(
+                        in_rate=sample_rate,
+                        out_rate=self.model_rate,
+                        num_channels=1,
+                        quality="HQ",
+                    )
+                    audio_float = webrtc_resampler.resample_chunk(audio_float)
+                else:
+                    # Simple linear interpolation if no soxr
+                    import scipy.signal
+
+                    audio_float = scipy.signal.resample(
+                        audio_float,
+                        int(len(audio_float) * self.model_rate / sample_rate),
+                    )
+
+                # Convert back to int16
+                audio_data = (audio_float * 32767).astype(np.int16)
+
+            # Process through the same VAD pipeline as microphone audio
+            return self.process_with_vad(audio_data)
+
+        except Exception as e:
+            # Log error but don't crash the audio processing
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error processing WebRTC audio: {e}")
+            return []

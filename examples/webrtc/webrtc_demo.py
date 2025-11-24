@@ -62,8 +62,6 @@ def find_model():
     # Look for common model names
     preferred_models = [
         "vosk-model-en-us-0.22",
-        "vosk-model-small-en-us-0.15",
-        "vosk-model-en-us-0.42-gigaspeech",
     ]
 
     for model_name in preferred_models:
@@ -109,7 +107,7 @@ def start_daemon(model_path, webrtc_port):
         )
 
         # Wait a bit for the daemon to start
-        time.sleep(3)
+        time.sleep(30)
 
         # Check if process is still running
         if process.poll() is None:

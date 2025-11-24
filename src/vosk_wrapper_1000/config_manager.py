@@ -104,6 +104,23 @@ class IPCConfig:
 
 
 @dataclass
+class WebRTCConfig:
+    """WebRTC configuration settings."""
+
+    enabled: bool = False
+    port: int = 8080
+    host: str = "0.0.0.0"
+    stun_servers: List[str] = field(
+        default_factory=lambda: ["stun:stun.l.google.com:19302"]
+    )
+    turn_servers: List[str] = field(default_factory=list)
+    max_connections: int = 5
+    audio_format: str = "opus"
+    sample_rate: int = 48000
+    channels: int = 1
+
+
+@dataclass
 class Config:
     """Main configuration class containing all settings."""
 
@@ -115,6 +132,7 @@ class Config:
     performance: PerformanceConfig = field(default_factory=PerformanceConfig)
     service: ServiceConfig = field(default_factory=ServiceConfig)
     ipc: IPCConfig = field(default_factory=IPCConfig)
+    webrtc: WebRTCConfig = field(default_factory=WebRTCConfig)
 
 
 class ConfigManager:
@@ -205,6 +223,7 @@ class ConfigManager:
             performance=PerformanceConfig(**data.get("performance", {})),
             service=ServiceConfig(**data.get("service", {})),
             ipc=IPCConfig(**data.get("ipc", {})),
+            webrtc=WebRTCConfig(**data.get("webrtc", {})),
         )
 
     def _apply_env_overrides(self, config: Config) -> None:
@@ -258,6 +277,18 @@ class ConfigManager:
             )
         if (socket_path := os.getenv("VOSK_IPC_SOCKET_PATH")) is not None:
             config.ipc.socket_path = socket_path
+
+        # WebRTC overrides
+        if (webrtc_enabled := os.getenv("VOSK_WEBRTC_ENABLED")) is not None:
+            config.webrtc.enabled = webrtc_enabled.lower() in (
+                "true",
+                "1",
+                "yes",
+            )
+        if (webrtc_port := os.getenv("VOSK_WEBRTC_PORT")) is not None:
+            config.webrtc.port = int(webrtc_port)
+        if (webrtc_host := os.getenv("VOSK_WEBRTC_HOST")) is not None:
+            config.webrtc.host = webrtc_host
 
     def save_config(
         self, config: Config, file_path: Optional[Union[str, Path]] = None
@@ -329,6 +360,17 @@ class ConfigManager:
                 "socket_path": config.ipc.socket_path,
                 "send_partials": config.ipc.send_partials,
                 "timeout": config.ipc.timeout,
+            },
+            "webrtc": {
+                "enabled": config.webrtc.enabled,
+                "port": config.webrtc.port,
+                "host": config.webrtc.host,
+                "stun_servers": config.webrtc.stun_servers,
+                "turn_servers": config.webrtc.turn_servers,
+                "max_connections": config.webrtc.max_connections,
+                "audio_format": config.webrtc.audio_format,
+                "sample_rate": config.webrtc.sample_rate,
+                "channels": config.webrtc.channels,
             },
         }
 
