@@ -292,7 +292,20 @@ class WebRTCServer:
             port = self.config.get("port", 8080)
 
             self.site = web.TCPSite(self.runner, host, port)
-            await self.site.start()
+
+            try:
+                await self.site.start()
+            except OSError as e:
+                if e.errno == 98:  # Address already in use
+                    logger.error(
+                        f"WebRTC server failed to start: Port {port} is already in use. "
+                        f"Please use a different port with --webrtc-port or stop the process using port {port}"
+                    )
+                else:
+                    logger.error(f"WebRTC server failed to bind to {host}:{port}: {e}")
+                self.running = False
+                await self._cleanup()
+                return
 
             self.running = True
             logger.info(f"WebRTC server started on {host}:{port}")
