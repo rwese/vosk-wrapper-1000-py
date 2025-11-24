@@ -18,6 +18,7 @@ from vosk_core.audio_system import print_audio_system_info
 from .config_manager import ConfigManager
 from vosk_core.device_manager import DeviceManager
 from .hook_manager import HookManager
+from .ipc_server import IPCServer
 from vosk_core.model_manager import ModelManager
 from .signal_manager import SignalManager
 from vosk_core.xdg_paths import get_hooks_dir

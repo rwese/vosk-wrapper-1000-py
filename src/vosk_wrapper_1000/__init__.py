@@ -14,6 +14,8 @@ from vosk_core.audio_recorder import AudioRecorder
 from vosk_core.device_manager import DeviceManager
 from vosk_core.download_model import main as download_model_main
 from .hook_manager import HookManager
+from .ipc_client import IPCClient
+from .ipc_server import IPCServer
 from .main import main
 from vosk_core.model_manager import ModelManager
 from .pid_manager import list_instances, remove_pid, send_signal_to_instance, write_pid
@@ -26,6 +28,8 @@ __all__ = [
     "AudioRecorder",
     "DeviceManager",
     "HookManager",
+    "IPCClient",
+    "IPCServer",
     "ModelManager",
     "SignalManager",
     "download_model_main",
