@@ -955,7 +955,6 @@ def cmd_transcribe_file(args):
                 print(f"Recording processed audio to: {args.record_audio}", file=sys.stderr)
 
             print(f"Processing audio (model expects {model_sample_rate} Hz)...", file=sys.stderr)
-            print()
 
             # Process audio in chunks
             chunk_size = 4000  # Process 4000 frames at a time
@@ -985,14 +984,12 @@ def cmd_transcribe_file(args):
                     result = json.loads(rec.Result())
                     text = result.get("text", "")
                     if text:
-                        print(text)
                         transcript_lines.append(text)
 
             # Get final result
             final_result = json.loads(rec.FinalResult())
             final_text = final_result.get("text", "")
             if final_text:
-                print(final_text)
                 transcript_lines.append(final_text)
 
             # Cleanup
@@ -1000,7 +997,11 @@ def cmd_transcribe_file(args):
             if audio_recorder:
                 audio_recorder.stop_recording()
 
+            # Print results
             print(f"\nTranscription complete. Total lines: {len(transcript_lines)}", file=sys.stderr)
+            print(f"--- Transcript ---", file=sys.stderr)
+            for line in transcript_lines:
+                print(line)
 
     except FileNotFoundError:
         print(f"Error: File not found: {args.file}", file=sys.stderr)
