@@ -17,7 +17,7 @@ class AudioProcessor:
         noise_filter_enabled: bool = True,
         noise_reduction_strength: float = 0.05,
         stationary_noise: bool = False,
-        silence_threshold: float = 500.0,
+        silence_threshold: float = 100.0,
         normalize_audio: bool = False,
         normalization_target_level: float = 0.3,
         channels: int = 1,

@@ -354,6 +354,17 @@ def run_service(args):
         audio_processor.device_rate = device_samplerate
     audio_processor.model_rate = model_sample_rate
 
+    # Initialize resampler now that we have the correct rates
+    if audio_processor.device_rate != audio_processor.model_rate:
+        import soxr
+        audio_processor.soxr_resampler = soxr.ResampleStream(
+            in_rate=audio_processor.device_rate,
+            out_rate=audio_processor.model_rate,
+            num_channels=1,
+            quality="HQ"
+        )
+        logger.info(f"Initialized resampler: {audio_processor.device_rate} Hz → {audio_processor.model_rate} Hz")
+
     # Setup audio recorder with model rate (record processed audio sent to Vosk)
     if args.record_audio:
         audio_recorder.sample_rate = model_sample_rate
@@ -1147,8 +1158,8 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
     daemon_parser.add_argument(
         "--silence-threshold",
         type=float,
-        default=500.0,
-        help="RMS threshold for audio detection - audio below this is skipped (default: 500.0)",
+        default=100.0,
+        help="RMS threshold for audio detection - audio below this is skipped (default: 100.0)",
     )
     daemon_parser.add_argument(
         "--normalize-audio",
@@ -1262,8 +1273,8 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
     transcribe_parser.add_argument(
         "--silence-threshold",
         type=float,
-        default=500.0,
-        help="RMS threshold for audio detection - audio below this is skipped (default: 500.0)",
+        default=100.0,
+        help="RMS threshold for audio detection - audio below this is skipped (default: 100.0)",
     )
     transcribe_parser.add_argument(
         "--normalize-audio",
