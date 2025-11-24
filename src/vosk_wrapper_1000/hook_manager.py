@@ -44,7 +44,7 @@ class HookManager:
 
             process = subprocess.Popen(
                 cmd,
-                stdin=subprocess.PIPE if payload else None,
+                stdin=subprocess.PIPE if payload is not None else None,
                 stdout=sys.stdout,  # Forward stdout to main stdout
                 stderr=sys.stderr,  # Forward stderr to main stderr
                 text=True,
@@ -59,9 +59,7 @@ class HookManager:
                     file=sys.stderr,
                 )
             elif returncode == 101:
-                print(
-                    f"  Hook '{hook}' requested TERMINATE (101).", file=sys.stderr
-                )
+                print(f"  Hook '{hook}' requested TERMINATE (101).", file=sys.stderr)
             elif returncode == 102:
                 print(f"  Hook '{hook}' requested ABORT (102).", file=sys.stderr)
             elif returncode != 0:
@@ -80,7 +78,9 @@ class HookManager:
                 if threading.current_thread() in self._running_hooks:
                     self._running_hooks.remove(threading.current_thread())
 
-    def run_hooks(self, event_name, payload=None, args=None, async_mode=True, callback=None):
+    def run_hooks(
+        self, event_name, payload=None, args=None, async_mode=True, callback=None
+    ):
         """
         Runs all hooks for a specific event.
 
@@ -104,7 +104,10 @@ class HookManager:
         if not hooks:
             return 0
 
-        print(f"Running hooks for event '{event_name}' (async={async_mode})...", file=sys.stderr)
+        print(
+            f"Running hooks for event '{event_name}' (async={async_mode})...",
+            file=sys.stderr,
+        )
 
         if async_mode:
             # Run hooks asynchronously
@@ -118,7 +121,7 @@ class HookManager:
                         target=self._execute_hook,
                         args=(hook, cmd, payload, callback),
                         daemon=True,
-                        name=f"Hook-{event_name}-{os.path.basename(hook)}"
+                        name=f"Hook-{event_name}-{os.path.basename(hook)}",
                     )
 
                     with self._lock:
@@ -143,7 +146,7 @@ class HookManager:
 
                     process = subprocess.Popen(
                         cmd,
-                        stdin=subprocess.PIPE if payload else None,
+                        stdin=subprocess.PIPE if payload is not None else None,
                         stdout=sys.stdout,  # Forward stdout to main stdout
                         stderr=sys.stderr,  # Forward stderr to main stderr
                         text=True,
@@ -159,11 +162,14 @@ class HookManager:
                         final_action = 100
                     elif process.returncode == 101:
                         print(
-                            f"  Hook '{hook}' requested TERMINATE (101).", file=sys.stderr
+                            f"  Hook '{hook}' requested TERMINATE (101).",
+                            file=sys.stderr,
                         )
                         return 101  # Immediate exit priority
                     elif process.returncode == 102:
-                        print(f"  Hook '{hook}' requested ABORT (102).", file=sys.stderr)
+                        print(
+                            f"  Hook '{hook}' requested ABORT (102).", file=sys.stderr
+                        )
                         return 102  # Immediate abort priority
                     elif process.returncode != 0:
                         print(
