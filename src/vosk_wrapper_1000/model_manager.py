@@ -1,7 +1,8 @@
 """Vosk model management utilities."""
 
 import os
-from typing import List, Tuple
+from pathlib import Path
+from typing import List, Tuple, Union
 
 from .xdg_paths import get_default_model_path, get_models_dir
 
@@ -12,6 +13,41 @@ class ModelManager:
     def __init__(self):
         self.models_dir = get_models_dir()
         self.default_model = get_default_model_path()
+
+    def resolve_model_path(self, model_path: Union[str, Path]) -> Path:
+        """Resolve a model path or name to an absolute path.
+
+        Args:
+            model_path: Either an absolute/relative path or a model name
+
+        Returns:
+            Resolved absolute path to the model
+
+        Raises:
+            FileNotFoundError: If model cannot be found
+        """
+        model_path = Path(model_path)
+
+        # If it's an absolute path and exists, use it
+        if model_path.is_absolute() and model_path.exists():
+            return model_path
+
+        # If it's a relative path and exists, resolve it
+        if model_path.exists():
+            return model_path.resolve()
+
+        # Try to find it in the models directory by name
+        model_in_dir = self.models_dir / str(model_path)
+        if model_in_dir.exists():
+            return model_in_dir
+
+        # Model not found
+        raise FileNotFoundError(
+            f"Model not found: {model_path}\n"
+            f"Searched locations:\n"
+            f"  - {model_path} (as provided)\n"
+            f"  - {model_in_dir} (in models directory)"
+        )
 
     def get_model_sample_rate(self, model_path: str) -> int:
         """Extract sample rate from model's mfcc.conf file."""

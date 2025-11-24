@@ -256,6 +256,14 @@ def run_service(args):
     device_manager = DeviceManager()
     hook_manager = HookManager(args.hooks_dir)
 
+    # Resolve model path (support short names like "vosk-model-en-gb-0.1")
+    try:
+        resolved_model_path = model_manager.resolve_model_path(args.model)
+        args.model = str(resolved_model_path)
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
     # Initialize IPC server if enabled
     ipc_server = None
     session_id = str(uuid4())
@@ -882,12 +890,20 @@ def cmd_transcribe_file(args):
     # Initialize config manager
     config_manager = ConfigManager()
 
+    # Initialize model manager
+    model_manager = ModelManager()
+
+    # Resolve model path (support short names like "vosk-model-en-gb-0.1")
+    try:
+        resolved_model_path = model_manager.resolve_model_path(args.model)
+        args.model = str(resolved_model_path)
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
     # Set Vosk log level to match application log level
     log_level = getattr(args, "_final_log_level", "WARNING")
     set_vosk_log_level(log_level)
-
-    # Initialize model manager
-    model_manager = ModelManager()
 
     # Get model sample rate
     model_sample_rate = model_manager.get_model_sample_rate(args.model)
