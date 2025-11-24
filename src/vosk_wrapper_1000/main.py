@@ -253,6 +253,7 @@ def run_service(args):
         noise_filter_enabled=not args.disable_noise_filter,
         noise_reduction_strength=args.noise_reduction,
         stationary_noise=args.stationary_noise and not args.non_stationary_noise,
+        silence_threshold=args.silence_threshold,
     )
 
     audio_recorder = AudioRecorder(
@@ -398,6 +399,12 @@ def run_service(args):
                         f"DEBUG: Processing audio while listening - callback #{callback_counter[0]}, frames: {frames}, audio max: {indata.max():.6f}",
                         file=sys.stderr,
                     )
+
+                # Check if audio contains meaningful sound
+                if not audio_processor.has_audio(indata):
+                    # Skip forwarding silent audio to Vosk to reduce CPU load
+                    logger.debug("Skipping silent audio chunk")
+                    return
 
                 # Process audio through our pipeline
                 processed_audio = audio_processor.process_audio_chunk(indata)
@@ -947,6 +954,12 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
         "--non-stationary-noise",
         action="store_true",
         help="Use non-stationary noise reduction (slower but more adaptive)",
+    )
+    daemon_parser.add_argument(
+        "--silence-threshold",
+        type=float,
+        default=500.0,
+        help="RMS threshold for audio detection - audio below this is skipped (default: 500.0)",
     )
     daemon_parser.add_argument(
         "--record-audio",

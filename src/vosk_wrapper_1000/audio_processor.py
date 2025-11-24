@@ -17,12 +17,14 @@ class AudioProcessor:
         noise_filter_enabled: bool = True,
         noise_reduction_strength: float = 0.2,
         stationary_noise: bool = True,
+        silence_threshold: float = 500.0,
     ):
         self.device_rate = device_rate
         self.model_rate = model_rate
         self.noise_filter_enabled = noise_filter_enabled
         self.noise_reduction_strength = noise_reduction_strength
         self.stationary_noise = stationary_noise
+        self.silence_threshold = silence_threshold
         self.soxr_resampler: Optional[soxr.ResampleStream] = None
 
         # Initialize soxr resampler if needed
@@ -30,6 +32,24 @@ class AudioProcessor:
             self.soxr_resampler = soxr.ResampleStream(
                 in_rate=device_rate, out_rate=model_rate, num_channels=1, quality="HQ"
             )
+
+    def has_audio(self, audio_data: np.ndarray) -> bool:
+        """Check if audio data contains meaningful sound above silence threshold.
+
+        Args:
+            audio_data: Audio data as numpy array
+
+        Returns:
+            True if audio contains sound above threshold, False if silent
+        """
+        if len(audio_data) == 0:
+            return False
+
+        # Calculate RMS (Root Mean Square) energy
+        audio_float = audio_data.astype(np.float32)
+        rms = np.sqrt(np.mean(audio_float ** 2))
+
+        return rms > self.silence_threshold
 
     def process_audio_chunk(self, audio_data: np.ndarray) -> np.ndarray:
         """Process a chunk of audio data with noise filtering and resampling."""
