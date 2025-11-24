@@ -57,6 +57,31 @@ def setup_logging(log_level=None, config_manager=None):
 
     logger.info(f"Logging configured with level: {log_level}")
 
+    return log_level
+
+
+def set_vosk_log_level(log_level: str):
+    """Set Vosk log level based on our application log level.
+
+    Args:
+        log_level: Application log level string (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    """
+    import vosk
+
+    # Map our log levels to Vosk log levels
+    # Vosk levels: -1 = silent, 0 = errors only, 1 = warnings, 2 = info (verbose)
+    vosk_level_map = {
+        "DEBUG": 2,      # Show all Vosk output including info
+        "INFO": 2,       # Show all Vosk output including info
+        "WARNING": 0,    # Show only Vosk errors
+        "ERROR": 0,      # Show only Vosk errors
+        "CRITICAL": -1,  # Silence Vosk completely
+    }
+
+    vosk_level = vosk_level_map.get(log_level.upper(), 0)
+    vosk.SetLogLevel(vosk_level)
+    logger.debug(f"Vosk log level set to {vosk_level} (app level: {log_level})")
+
 
 def handle_ipc_command(
     cmd_data,
@@ -250,10 +275,12 @@ def run_service(args):
     audio_processor = AudioProcessor(
         device_rate=16000,  # Placeholder, will be updated after device detection
         model_rate=16000,  # Placeholder, will be updated after model loading
-        noise_filter_enabled=not args.disable_noise_filter,
-        noise_reduction_strength=args.noise_reduction,
+        noise_filter_enabled=not args.disable_noise_reduction,
+        noise_reduction_strength=args.noise_reduction_level,
         stationary_noise=args.stationary_noise and not args.non_stationary_noise,
         silence_threshold=args.silence_threshold,
+        normalize_audio=args.normalize_audio,
+        normalization_target_level=args.normalize_target_level,
     )
 
     audio_recorder = AudioRecorder(
@@ -319,13 +346,13 @@ def run_service(args):
         audio_processor.device_rate = device_samplerate
     audio_processor.model_rate = model_sample_rate
 
-    # Setup audio recorder with model rate
+    # Setup audio recorder with model rate (record processed audio sent to Vosk)
     if args.record_audio:
         audio_recorder.sample_rate = model_sample_rate
         if not audio_recorder.start_recording():
             print(f"Error opening recording file {args.record_audio}", file=sys.stderr)
             sys.exit(1)
-        print(f"Recording processed audio to: {args.record_audio}", file=sys.stderr)
+        print(f"Recording processed audio at {model_sample_rate} Hz to: {args.record_audio}", file=sys.stderr)
 
     # Write PID file
     instance_name = args.name
@@ -334,8 +361,12 @@ def run_service(args):
 
     # Load Model
     print(f"Loading model from {args.model}...", file=sys.stderr)
-    import vosk
 
+    # Set Vosk log level to match application log level
+    log_level = getattr(args, "_final_log_level", "WARNING")
+    set_vosk_log_level(log_level)
+
+    import vosk
     model = vosk.Model(str(args.model))
 
     # Create recognizer with optional grammar
@@ -406,14 +437,14 @@ def run_service(args):
                     logger.debug("Skipping silent audio chunk")
                     return
 
-                # Process audio through our pipeline
+                # Process audio through our pipeline (noise filtering + resampling)
                 processed_audio = audio_processor.process_audio_chunk(indata)
 
-                # Save to recording file if enabled
+                # Save to recording file if enabled (record exactly what goes to Vosk)
                 if args.record_audio:
                     audio_recorder.write_audio(processed_audio)
 
-                # Queue for Vosk processing
+                # Queue for Vosk processing only if audio is detected
                 audio_queue.put_nowait(bytes(processed_audio))
             except queue.Full:
                 # Drop audio frames if queue is full (prevents overflow)
@@ -843,6 +874,147 @@ def cmd_stream(args):
         sys.exit(1)
 
 
+def cmd_transcribe_file(args):
+    """Transcribe a WAV file using the audio processing pipeline."""
+    import wave
+    import numpy as np
+
+    # Initialize config manager
+    config_manager = ConfigManager()
+
+    # Set Vosk log level to match application log level
+    log_level = getattr(args, "_final_log_level", "WARNING")
+    set_vosk_log_level(log_level)
+
+    # Initialize model manager
+    model_manager = ModelManager()
+
+    # Get model sample rate
+    model_sample_rate = model_manager.get_model_sample_rate(args.model)
+
+    print(f"Loading model from {args.model}...", file=sys.stderr)
+    import vosk
+    model = vosk.Model(str(args.model))
+
+    # Open WAV file
+    try:
+        with wave.open(args.file, "rb") as wf:
+            # Get WAV file properties
+            channels = wf.getnchannels()
+            sampwidth = wf.getsampwidth()
+            framerate = wf.getframerate()
+            nframes = wf.getnframes()
+
+            print(f"Input file: {args.file}", file=sys.stderr)
+            print(f"  Channels: {channels}", file=sys.stderr)
+            print(f"  Sample width: {sampwidth} bytes", file=sys.stderr)
+            print(f"  Sample rate: {framerate} Hz", file=sys.stderr)
+            print(f"  Duration: {nframes / framerate:.2f} seconds", file=sys.stderr)
+
+            if channels != 1:
+                print(f"Error: Only mono (1 channel) WAV files are supported", file=sys.stderr)
+                sys.exit(1)
+
+            if sampwidth != 2:
+                print(f"Error: Only 16-bit (2 byte) WAV files are supported", file=sys.stderr)
+                sys.exit(1)
+
+            # Initialize audio processor
+            audio_processor = AudioProcessor(
+                device_rate=framerate,
+                model_rate=model_sample_rate,
+                noise_filter_enabled=not args.disable_noise_reduction,
+                noise_reduction_strength=args.noise_reduction_level,
+                stationary_noise=args.stationary_noise and not args.non_stationary_noise,
+                silence_threshold=args.silence_threshold,
+                normalize_audio=args.normalize_audio,
+                normalization_target_level=args.normalize_target_level,
+            )
+
+            # Create recognizer
+            if args.grammar:
+                print(f"Using grammar: {args.grammar}", file=sys.stderr)
+                rec = vosk.KaldiRecognizer(model, model_sample_rate, args.grammar)
+            else:
+                rec = vosk.KaldiRecognizer(model, model_sample_rate)
+
+            # Configure recognizer options
+            if args.words:
+                rec.SetWords(True)
+
+            if args.partial_words:
+                rec.SetPartialWords(True)
+
+            # Setup audio recorder if requested
+            audio_recorder = None
+            if args.record_audio:
+                audio_recorder = AudioRecorder(args.record_audio, model_sample_rate)
+                if not audio_recorder.start_recording():
+                    print(f"Error opening recording file {args.record_audio}", file=sys.stderr)
+                    sys.exit(1)
+                print(f"Recording processed audio to: {args.record_audio}", file=sys.stderr)
+
+            print(f"Processing audio (model expects {model_sample_rate} Hz)...", file=sys.stderr)
+            print()
+
+            # Process audio in chunks
+            chunk_size = 4000  # Process 4000 frames at a time
+            transcript_lines = []
+
+            while True:
+                data = wf.readframes(chunk_size)
+                if len(data) == 0:
+                    break
+
+                # Convert bytes to numpy array
+                audio_chunk = np.frombuffer(data, dtype=np.int16)
+
+                # Check if audio contains meaningful sound
+                if not audio_processor.has_audio(audio_chunk):
+                    continue
+
+                # Process audio through pipeline
+                processed_audio = audio_processor.process_audio_chunk(audio_chunk)
+
+                # Save to recording file if enabled
+                if audio_recorder:
+                    audio_recorder.write_audio(processed_audio)
+
+                # Send to Vosk
+                if rec.AcceptWaveform(bytes(processed_audio)):
+                    result = json.loads(rec.Result())
+                    text = result.get("text", "")
+                    if text:
+                        print(text)
+                        transcript_lines.append(text)
+
+            # Get final result
+            final_result = json.loads(rec.FinalResult())
+            final_text = final_result.get("text", "")
+            if final_text:
+                print(final_text)
+                transcript_lines.append(final_text)
+
+            # Cleanup
+            audio_processor.cleanup()
+            if audio_recorder:
+                audio_recorder.stop_recording()
+
+            print(f"\nTranscription complete. Total lines: {len(transcript_lines)}", file=sys.stderr)
+
+    except FileNotFoundError:
+        print(f"Error: File not found: {args.file}", file=sys.stderr)
+        sys.exit(1)
+    except wave.Error as e:
+        print(f"Error reading WAV file: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected error: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(1)
+
+
 def main():
     # Get XDG default paths
     default_model = ModelManager().default_model
@@ -934,26 +1106,26 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
 
     # Audio processing options
     daemon_parser.add_argument(
-        "--disable-noise-filter",
+        "--disable-noise-reduction",
         action="store_true",
-        help="Disable noise filtering (enabled by default)",
+        help="Disable noise reduction (enabled by default)",
     )
     daemon_parser.add_argument(
-        "--noise-reduction",
+        "--noise-reduction-level",
         type=float,
-        default=0.2,
-        help="Noise reduction strength (0.0-1.0, default: 0.2)",
+        default=0.05,
+        help="Noise reduction strength (0.0-1.0, default: 0.05)",
     )
     daemon_parser.add_argument(
         "--stationary-noise",
         action="store_true",
-        default=True,
-        help="Use stationary noise reduction (faster, default: True)",
+        help="Use stationary noise reduction (faster)",
     )
     daemon_parser.add_argument(
         "--non-stationary-noise",
         action="store_true",
-        help="Use non-stationary noise reduction (slower but more adaptive)",
+        default=True,
+        help="Use non-stationary noise reduction (slower but more adaptive, default: True)",
     )
     daemon_parser.add_argument(
         "--silence-threshold",
@@ -962,9 +1134,20 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
         help="RMS threshold for audio detection - audio below this is skipped (default: 500.0)",
     )
     daemon_parser.add_argument(
+        "--normalize-audio",
+        action="store_true",
+        help="Enable audio normalization to ensure consistent levels",
+    )
+    daemon_parser.add_argument(
+        "--normalize-target-level",
+        type=float,
+        default=0.3,
+        help="Target RMS level for normalization (0.0-1.0, default: 0.3)",
+    )
+    daemon_parser.add_argument(
         "--record-audio",
         type=str,
-        help="Record processed audio to WAV file for review",
+        help="Record processed audio sent to Vosk to WAV file for review",
     )
     daemon_parser.add_argument(
         "--log-level",
@@ -1022,12 +1205,93 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
         help="Don't show partial results, only final transcriptions",
     )
 
+    # Transcribe file command
+    transcribe_parser = subparsers.add_parser(
+        "transcribe-file", help="Transcribe a WAV file using the audio processing pipeline"
+    )
+    transcribe_parser.add_argument(
+        "file", help="Path to WAV file to transcribe (must be mono, 16-bit)"
+    )
+    transcribe_parser.add_argument(
+        "--model",
+        type=str,
+        default=default_model,
+        help=f"Path to Vosk model directory (default: {default_model})",
+    )
+
+    # Audio processing options (same as daemon)
+    transcribe_parser.add_argument(
+        "--disable-noise-reduction",
+        action="store_true",
+        help="Disable noise reduction (enabled by default)",
+    )
+    transcribe_parser.add_argument(
+        "--noise-reduction-level",
+        type=float,
+        default=0.05,
+        help="Noise reduction strength (0.0-1.0, default: 0.05)",
+    )
+    transcribe_parser.add_argument(
+        "--stationary-noise",
+        action="store_true",
+        help="Use stationary noise reduction (faster)",
+    )
+    transcribe_parser.add_argument(
+        "--non-stationary-noise",
+        action="store_true",
+        default=True,
+        help="Use non-stationary noise reduction (slower but more adaptive, default: True)",
+    )
+    transcribe_parser.add_argument(
+        "--silence-threshold",
+        type=float,
+        default=500.0,
+        help="RMS threshold for audio detection - audio below this is skipped (default: 500.0)",
+    )
+    transcribe_parser.add_argument(
+        "--normalize-audio",
+        action="store_true",
+        help="Enable audio normalization to ensure consistent levels",
+    )
+    transcribe_parser.add_argument(
+        "--normalize-target-level",
+        type=float,
+        default=0.3,
+        help="Target RMS level for normalization (0.0-1.0, default: 0.3)",
+    )
+    transcribe_parser.add_argument(
+        "--record-audio",
+        type=str,
+        help="Record processed audio sent to Vosk to WAV file for comparison",
+    )
+
+    # Vosk recognition options
+    transcribe_parser.add_argument(
+        "--words",
+        action="store_true",
+        help="Enable word-level timestamps in recognition output",
+    )
+    transcribe_parser.add_argument(
+        "--partial-words",
+        action="store_true",
+        help="Enable partial word results during recognition",
+    )
+    transcribe_parser.add_argument(
+        "--grammar",
+        type=str,
+        default=None,
+        help="Grammar/vocabulary to restrict recognition (space-separated words)",
+    )
+
     args = parser.parse_args()
 
     # Setup logging based on args, environment, or config file
     log_level = getattr(args, "log_level", None)
     config_manager = ConfigManager()
-    setup_logging(log_level, config_manager)
+    final_log_level = setup_logging(log_level, config_manager)
+
+    # Store the final log level in args for commands to access
+    args._final_log_level = final_log_level
 
     if args.command == "daemon":
         run_service(args)
@@ -1043,6 +1307,8 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
         cmd_send(args)
     elif args.command == "stream":
         cmd_stream(args)
+    elif args.command == "transcribe-file":
+        cmd_transcribe_file(args)
     else:
         parser.print_help()
 

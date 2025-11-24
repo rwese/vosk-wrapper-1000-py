@@ -15,9 +15,11 @@ class AudioProcessor:
         device_rate: int,
         model_rate: int,
         noise_filter_enabled: bool = True,
-        noise_reduction_strength: float = 0.2,
-        stationary_noise: bool = True,
+        noise_reduction_strength: float = 0.05,
+        stationary_noise: bool = False,
         silence_threshold: float = 500.0,
+        normalize_audio: bool = False,
+        normalization_target_level: float = 0.3,
     ):
         self.device_rate = device_rate
         self.model_rate = model_rate
@@ -25,6 +27,8 @@ class AudioProcessor:
         self.noise_reduction_strength = noise_reduction_strength
         self.stationary_noise = stationary_noise
         self.silence_threshold = silence_threshold
+        self.normalize_audio = normalize_audio
+        self.normalization_target_level = normalization_target_level
         self.soxr_resampler: Optional[soxr.ResampleStream] = None
 
         # Initialize soxr resampler if needed
@@ -51,13 +55,51 @@ class AudioProcessor:
 
         return rms > self.silence_threshold
 
+    def normalize_audio_chunk(self, audio_data: np.ndarray) -> np.ndarray:
+        """Normalize audio to target RMS level.
+
+        Args:
+            audio_data: Audio data as int16 numpy array
+
+        Returns:
+            Normalized audio as int16 numpy array
+        """
+        if len(audio_data) == 0:
+            return audio_data
+
+        # Convert to float (normalize to [-1.0, 1.0])
+        audio_float = audio_data.astype(np.float32) / 32768.0
+
+        # Calculate current RMS
+        current_rms = np.sqrt(np.mean(audio_float ** 2))
+
+        # Avoid division by zero or amplifying silence
+        if current_rms < 1e-6:
+            return audio_data
+
+        # Calculate gain to reach target level
+        gain = self.normalization_target_level / current_rms
+
+        # Limit gain to prevent excessive amplification (max 10x)
+        gain = min(gain, 10.0)
+
+        # Apply gain
+        normalized = audio_float * gain
+
+        # Convert back to int16 with clipping (use 32768.0 for symmetric scaling)
+        return np.clip(normalized * 32768.0, -32768, 32767).astype(np.int16)
+
     def process_audio_chunk(self, audio_data: np.ndarray) -> np.ndarray:
         """Process a chunk of audio data with noise filtering and resampling."""
         processed_audio = audio_data.copy()
 
+        # Apply normalization first if enabled (before noise reduction)
+        if self.normalize_audio:
+            processed_audio = self.normalize_audio_chunk(processed_audio)
+
         # Apply noise filtering if enabled
         if self.noise_filter_enabled and len(audio_data) > 1024:
-            # Convert to float for noise reduction
+            # Convert to float for noise reduction (normalize to [-1.0, 1.0])
             audio_float = processed_audio.astype(np.float32) / 32768.0
             # Apply configurable noise reduction
             audio_float = nr.reduce_noise(
@@ -66,22 +108,22 @@ class AudioProcessor:
                 stationary=self.stationary_noise,
                 prop_decrease=self.noise_reduction_strength,
             )
-            # Convert back to int16
-            processed_audio = np.clip(audio_float * 32767, -32768, 32767).astype(
+            # Convert back to int16 (use 32768.0 for symmetric scaling)
+            processed_audio = np.clip(audio_float * 32768.0, -32768, 32767).astype(
                 np.int16
             )
 
         # Resample if needed using soxr
         if self.device_rate != self.model_rate and self.soxr_resampler:
-            # Convert to float for soxr
+            # Convert to float for soxr (normalize to [-1.0, 1.0])
             audio_float = processed_audio.astype(np.float32) / 32768.0
             # Resample using soxr
             resampled_float = self.soxr_resampler.resample_chunk(
                 audio_float.reshape(-1, 1), last=False
             )
-            # Convert back to int16 and flatten to 1D array
+            # Convert back to int16 and flatten to 1D array (use 32768.0 for symmetric scaling)
             processed_audio = (
-                np.clip(resampled_float * 32767, -32768, 32767)
+                np.clip(resampled_float * 32768.0, -32768, 32767)
                 .astype(np.int16)
                 .flatten()
             )
@@ -96,7 +138,7 @@ class AudioProcessor:
                 np.array([], dtype=np.float32).reshape(-1, 1), last=True
             )
             return (
-                np.clip(final_chunk * 32767, -32768, 32767).astype(np.int16).flatten()
+                np.clip(final_chunk * 32768.0, -32768, 32767).astype(np.int16).flatten()
             )
         return np.array([], dtype=np.int16)
 
