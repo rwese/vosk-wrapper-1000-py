@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from vosk_wrapper_1000.model_manager import ModelManager
+from vosk_core.model_manager import ModelManager
 
 
 class TestModelManager(unittest.TestCase):
@@ -20,7 +20,7 @@ class TestModelManager(unittest.TestCase):
         self.assertIsNotNone(self.model_manager.models_dir)
         self.assertIsNotNone(self.model_manager.default_model)
 
-    @patch("vosk_wrapper_1000.model_manager.get_models_dir")
+    @patch("vosk_core.model_manager.get_models_dir")
     def test_list_available_models_empty(self, mock_get_models_dir):
         """Test listing models when none exist."""
         mock_get_models_dir.return_value = "/nonexistent/path"
@@ -30,7 +30,7 @@ class TestModelManager(unittest.TestCase):
 
         self.assertEqual(models, [])
 
-    @patch("vosk_wrapper_1000.model_manager.get_models_dir")
+    @patch("vosk_core.model_manager.get_models_dir")
     def test_list_available_models_with_models(self, mock_get_models_dir):
         """Test listing models when some exist."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -131,7 +131,7 @@ class TestModelManager(unittest.TestCase):
             self.assertTrue(is_valid)
             self.assertEqual(message, "Model validation passed")
 
-    @patch("vosk_wrapper_1000.model_manager.get_models_dir")
+    @patch("vosk_core.model_manager.get_models_dir")
     def test_get_model_info_nonexistent(self, mock_get_models_dir):
         """Test getting info for non-existent model."""
         mock_get_models_dir.return_value = "/nonexistent/path"
@@ -144,7 +144,7 @@ class TestModelManager(unittest.TestCase):
         self.assertIsNone(info["sample_rate"])
         self.assertIsNone(info["size_mb"])
 
-    @patch("vosk_wrapper_1000.model_manager.get_models_dir")
+    @patch("vosk_core.model_manager.get_models_dir")
     def test_get_model_info_exists(self, mock_get_models_dir):
         """Test getting info for existing model."""
         with tempfile.TemporaryDirectory() as temp_dir:

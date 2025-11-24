@@ -5,7 +5,7 @@ Unit tests for DeviceManager.
 import unittest
 from unittest.mock import MagicMock, patch
 
-from vosk_wrapper_1000.device_manager import DeviceManager
+from vosk_core.device_manager import DeviceManager
 
 
 class TestDeviceManager(unittest.TestCase):
@@ -21,7 +21,7 @@ class TestDeviceManager(unittest.TestCase):
         self.assertIsNotNone(manager)
         self.assertIsNone(manager.devices_cache)
 
-    @patch("vosk_wrapper_1000.device_manager.sd.query_devices")
+    @patch("vosk_core.device_manager.sd.query_devices")
     def test_refresh_devices(self, mock_query):
         """Test device refreshing."""
         # Mock device list
@@ -49,7 +49,7 @@ class TestDeviceManager(unittest.TestCase):
         self.assertEqual(devices[0]["name"], "Test Device 1")
         self.assertEqual(devices[1]["name"], "Test Device 2")
 
-    @patch("vosk_wrapper_1000.device_manager.sd.query_devices")
+    @patch("vosk_core.device_manager.sd.query_devices")
     def test_refresh_devices_empty(self, mock_query):
         """Test device refreshing with no devices."""
         mock_query.return_value = []
@@ -62,7 +62,7 @@ class TestDeviceManager(unittest.TestCase):
 
     def test_get_device_info(self):
         """Test getting device info."""
-        with patch("vosk_wrapper_1000.device_manager.sd.query_devices") as mock_query:
+        with patch("vosk_core.device_manager.sd.query_devices") as mock_query:
             mock_devices = [
                 {
                     "name": "Test Device",
@@ -82,7 +82,7 @@ class TestDeviceManager(unittest.TestCase):
 
     def test_get_device_info_by_id(self):
         """Test getting device info by ID."""
-        with patch("vosk_wrapper_1000.device_manager.sd.query_devices") as mock_query:
+        with patch("vosk_core.device_manager.sd.query_devices") as mock_query:
             mock_devices = [
                 {
                     "name": "Test Device",
@@ -102,7 +102,7 @@ class TestDeviceManager(unittest.TestCase):
 
     def test_get_device_info_not_found(self):
         """Test getting device info when not found."""
-        with patch("vosk_wrapper_1000.device_manager.sd.query_devices") as mock_query:
+        with patch("vosk_core.device_manager.sd.query_devices") as mock_query:
             mock_devices = [
                 {
                     "name": "Other Device",

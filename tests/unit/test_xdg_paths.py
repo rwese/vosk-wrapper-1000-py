@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from vosk_wrapper_1000.xdg_paths import XDGPaths
+from vosk_core.xdg_paths import XDGPaths
 
 
 class TestXDGPaths(unittest.TestCase):

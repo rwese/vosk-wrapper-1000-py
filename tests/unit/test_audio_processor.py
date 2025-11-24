@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from vosk_wrapper_1000.audio_processor import AudioProcessor
+from vosk_core.audio_processor import AudioProcessor
 
 
 class TestAudioProcessor(unittest.TestCase):
@@ -67,7 +67,7 @@ class TestAudioProcessor(unittest.TestCase):
         result = processor.process_audio_chunk(audio_chunk)
         self.assertEqual(len(result), len(audio_chunk))
 
-    @patch("vosk_wrapper_1000.audio_processor.nr.reduce_noise")
+    @patch("vosk_core.audio_processor.nr.reduce_noise")
     def test_noise_reduction(self, mock_reduce_noise):
         """Test noise reduction is applied."""
         # Mock:: noise reduction function
