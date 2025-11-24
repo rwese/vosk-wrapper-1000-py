@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "vosk-wrapper-1000"
 version = "0.1.0"
-description = "A simple, robust, and configurable Python-based speech recognition service using Vosk"
+description = "Modular speech recognition toolkit with Vosk - includes daemon, file transcription, and core library"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
@@ -22,11 +22,14 @@ dependencies = [
 
 [project.scripts]
 vosk-wrapper-1000 = "vosk_wrapper_1000.main:main"
-vosk-download-model-1000 = "vosk_wrapper_1000.download_model:main"
+vosk-download-model-1000 = "vosk_core.download_model:main"
+vosk-transcribe = "vosk_transcribe:main"
 
 [tool.hatch.build.targets.wheel]
 only-include = [
+    "src/vosk_core",
     "src/vosk_wrapper_1000",
+    "src/vosk_transcribe",
 ]
 
 [tool.hatch.build]
@@ -120,7 +123,7 @@ extend-exclude = '''
 profile = "black"
 multi_line_output = 3
 line_length = 88
-known_first_party = ["vosk_wrapper_1000"]
+known_first_party = ["vosk_core", "vosk_wrapper_1000", "vosk_transcribe"]
 
 [tool.mypy]
 python_version = "3.8"
@@ -146,5 +149,8 @@ module = [
     "noisereduce.*",
     "soxr.*",
     "pipewire_python.*",
+    "vosk_core.*",
+    "vosk_wrapper_1000.*",
+    "vosk_transcribe.*",
 ]
 ignore_missing_imports = true

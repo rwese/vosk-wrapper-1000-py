@@ -12,17 +12,15 @@ from typing import List
 from uuid import uuid4
 
 # Import local modules
-from .audio_processor import AudioProcessor
-from .audio_recorder import AudioRecorder
-from .audio_system import print_audio_system_info
+from vosk_core.audio_processor import AudioProcessor
+from vosk_core.audio_recorder import AudioRecorder
+from vosk_core.audio_system import print_audio_system_info
 from .config_manager import ConfigManager
-from .device_manager import DeviceManager
+from vosk_core.device_manager import DeviceManager
 from .hook_manager import HookManager
-from .ipc_server import IPCServer
-from .model_manager import ModelManager
-from .pid_manager import list_instances, remove_pid, send_signal_to_instance, write_pid
+from vosk_core.model_manager import ModelManager
 from .signal_manager import SignalManager
-from .xdg_paths import get_hooks_dir
+from vosk_core.xdg_paths import get_hooks_dir
 
 # Set up module logger
 logger = logging.getLogger(__name__)

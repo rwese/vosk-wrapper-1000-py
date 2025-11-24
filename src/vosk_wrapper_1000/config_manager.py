@@ -12,7 +12,7 @@ from typing import Any, Dict, Optional, Union
 
 import yaml
 
-from .xdg_paths import XDGPaths
+from vosk_core.xdg_paths import XDGPaths
 
 
 @dataclass
@@ -137,7 +137,9 @@ class ConfigManager:
             return None
 
         # Check XDG config directory
-        xdg_config = self.xdg_paths.get_config_dir() / "vosk-wrapper-1000" / "config.yaml"
+        xdg_config = (
+            self.xdg_paths.get_config_dir() / "vosk-wrapper-1000" / "config.yaml"
+        )
         if xdg_config.exists():
             return xdg_config
 

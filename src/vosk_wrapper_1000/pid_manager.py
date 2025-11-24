@@ -3,7 +3,7 @@
 import os
 import sys
 
-from .xdg_paths import APP_NAME, get_xdg_cache_home
+from vosk_core.xdg_paths import APP_NAME, get_xdg_cache_home
 
 
 def get_pid_dir():

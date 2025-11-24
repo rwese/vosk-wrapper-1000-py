@@ -1,18 +1,20 @@
 # Vosk Wrapper 1000
 
-A simple, robust, and configurable Python-based speech recognition service using [Vosk](https://alphacephei.com/vosk/).
+A modular speech recognition toolkit using [Vosk](https://alphacephei.com/vosk/) with separate components for different use cases.
 
 **Repository**: [github.com/rwese/vosk-wrapper-1000-py](https://github.com/rwese/vosk-wrapper-1000-py)
 
-## 🚀 **What's New in v2.0**
+## 🚀 **What's New in v3.0**
 
 ### **Major Architecture Refactoring**
-- **Modular Design**: Transformed from monolithic 470-line file to 13 focused modules for better maintainability
+- **Modular Architecture**: Split into three focused packages:
+  - `vosk-core`: Core audio processing and Vosk integration library
+  - `vosk-wrapper-1000`: Daemon for continuous speech recognition
+  - `vosk-transcribe`: Standalone file transcription tool
 - **Enhanced Audio Processing**: Upgraded to soxr HQ streaming resampling with configurable noise filtering
 - **Audio Recording**: Record processed audio to WAV files for review and debugging
 - **Cross-Platform Audio System Detection**: Automatic detection of PipeWire/PulseAudio/ALSA/CoreAudio/WASAPI
 - **Improved Device Management**: Enhanced device compatibility validation and management
-- **Project Renaming**: Renamed from "vosk-simple" to "vosk-wrapper-1000" for better clarity
 
 ### **New Features**
 - **Configurable Noise Reduction**: `--noise-reduction 0.0-1.0` (default: 0.2)
@@ -34,7 +36,31 @@ uv tool install git+https://github.com/rwese/vosk-wrapper-1000-py
 pip install git+https://github.com/rwese/vosk-wrapper-1000-py
 ```
 
-After installation, the commands `vosk-wrapper-1000` and `vosk-download-model-1000` will be available in your PATH.
+After installation, the commands `vosk-wrapper-1000`, `vosk-download-model-1000`, and `vosk-transcribe` will be available in your PATH.
+
+## Package Structure
+
+This project is organized into three focused packages:
+
+### `vosk-core`
+Core audio processing and Vosk integration library. Contains:
+- Audio input handling and device management
+- Vosk model loading and speech recognition
+- Audio preprocessing (resampling, noise reduction)
+- Reusable components for building speech applications
+
+### `vosk-wrapper-1000`
+Daemon for continuous speech recognition with:
+- Background listening service
+- IPC communication for external control
+- Hook system for event-driven processing
+- Configuration management and instance handling
+
+### `vosk-transcribe`
+Standalone file transcription tool:
+- Command-line audio file transcription
+- Batch processing capabilities
+- Simple, focused interface for file-based workflows
 
 ## Quick Start
 
@@ -111,6 +137,21 @@ If you installed the package, use the commands directly:
     vosk-wrapper-1000 terminate my-instance  # for named instance
     ```
 
+4.  **Transcribe Audio Files**
+    ```bash
+    # Transcribe a single audio file (prints to stdout)
+    vosk-transcribe audio.wav
+
+    # Save transcription to a file
+    vosk-transcribe audio.wav --output transcript.txt
+
+    # Use a specific model
+    vosk-transcribe audio.mp3 --model ~/.local/share/vosk-wrapper-1000/models/vosk-model-en-us-0.22 --output result.txt
+
+    # Get help
+    vosk-transcribe --help
+    ```
+
 ### Running from Source with uvx
 
 If you cloned the repository and want to run without installing:
@@ -124,7 +165,13 @@ If you cloned the repository and want to run without installing:
     uvx --from . vosk-download-model-1000 vosk-model-small-en-us-0.15
     ```
 
-2.  **Run and Control the Application**
+2.  **Transcribe Audio Files**
+    ```bash
+    # Transcribe a file
+    uvx --from . vosk-transcribe audio.wav --output transcript.txt
+    ```
+
+3.  **Run and Control the Application**
     ```bash
     # Run with default settings
     uvx --from . vosk-wrapper-1000 daemon
@@ -682,9 +729,11 @@ vosk-wrapper-1000 daemon --noise-reduction 0.2 --foreground  # In another
 
 ### Project Structure
 
-The project follows a clean, modular architecture:
+The project follows a clean, modular architecture split into three packages:
 
-- **`src/vosk_wrapper_1000/`**: Main package with all core functionality
+- **`src/vosk_core/`**: Core audio processing and Vosk integration library
+- **`src/vosk_wrapper_1000/`**: Daemon for continuous speech recognition
+- **`src/vosk_transcribe/`**: Standalone file transcription tool
 - **`tests/`**: Comprehensive test suite (unit and integration tests)
 - **`config/`**: Default configuration files
 - **`hooks/`**: Example hook scripts
