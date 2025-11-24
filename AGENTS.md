@@ -16,21 +16,69 @@ uv build
 ```
 
 ### Testing
+
+**IMPORTANT**: This project uses `uv` for dependency and test management. You **MUST** use `uv run` to execute tests.
+
 ```bash
 # Run unit tests
-python -m pytest tests/unit/
+uv run pytest tests/unit/
 
 # Run integration tests
-python -m pytest tests/integration/
+uv run pytest tests/integration/
 
 # Run all tests
-python -m pytest tests/
+uv run pytest tests/
 
 # Run specific test modules
-python -m pytest tests/unit/test_audio_processor.py -v
-python -m pytest tests/unit/test_hook_manager.py -v
-python -m pytest tests/integration/ -v
+uv run pytest tests/unit/test_audio_processor.py -v
+uv run pytest tests/unit/test_hook_manager.py -v
+uv run pytest tests/integration/ -v
+
+# Run tests with coverage
+uv run pytest --cov=src/vosk_wrapper_1000 tests/
+
+# Run tests matching a pattern
+uv run pytest -k "test_audio_processor or test_vad" -v
 ```
+
+**CRITICAL**: After making changes to any code, you **MUST** run the relevant tests to ensure no regressions. Pay special attention to:
+
+- **Config Manager Tests**: Run `uv run pytest tests/unit/test_config_manager.py -v` after any configuration-related changes
+- **Full Test Suite**: Run `uv run pytest tests/unit/ -v` to catch integration issues across modules
+
+**TUI Testing Limitations**: The Textual User Interface (TUI) in `settings_tui.py` currently has **NO AUTOMATED TESTS**. You **MUST** manually test TUI functionality after changes:
+
+```bash
+# Manual TUI testing (requires interactive terminal)
+python -m src.vosk_wrapper_1000.settings_tui
+
+# Test workflow:
+# 1. Load TUI and verify settings are loaded from config
+# 2. Change settings (model selection, audio parameters)
+# 3. Save settings
+# 4. Exit and restart TUI
+# 5. Verify settings persist across sessions
+```
+
+### Code Quality and Debugging
+
+**MANDATORY CODE CLEANUP**: After debugging or testing changes, you **MUST** clean up temporary code:
+
+- **Remove Debug Statements**: Delete all `print()` statements, debug file writes, and temporary logging added during development
+- **Remove Test Code**: Remove auto-save calls, test hooks, and other temporary modifications
+- **Verify Clean Code**: Ensure the code matches production standards before committing
+
+**Debugging TUI Issues**: When working with the TUI, use these techniques:
+
+1. **Add Temporary Logging**: Use stderr for debug output that won't interfere with TUI display
+2. **Test Settings Persistence**: Always verify save/load cycle works correctly
+3. **Check Model Path Resolution**: Ensure model dropdown shows full paths but config stores them correctly
+4. **Manual Testing Required**: TUI functionality cannot be automated - always test manually
+
+**Common TUI Issues**:
+- **Settings Not Persisting**: Check config file path and YAML formatting
+- **Model Dropdown Empty**: Verify ModelManager can find downloaded models
+- **UI Not Updating**: Ensure widget IDs match between creation and collection code
 
 ## Directory Structure
 
@@ -95,6 +143,7 @@ Configuration is managed by `src/vosk_wrapper_1000/config_manager.py` and suppor
 - Environment variable overrides
 - Type validation and defaults
 - Hot reloading capabilities
+- **Audio device selection** with automatic fallback to system default
 
 ### Code Style
 - **Imports**: Standard library first, then third-party, then local modules
@@ -343,6 +392,21 @@ vosk-wrapper-1000 daemon --device 0
 ```
 
 **IF** you do **NOT** specify a device, the system default is used.
+
+### Default Device Configuration
+
+You **CAN** configure a default audio device in the TUI settings or config file:
+
+```yaml
+audio:
+  default_device: "1"  # Device ID as string, empty string means system default
+```
+
+**Features:**
+- **TUI Integration**: Device selection available in settings panel
+- **Automatic Fallback**: Falls back to system default if configured device unavailable
+- **Real-time Monitor**: Uses configured device in TUI audio monitoring
+- **Persistence**: Setting saved to `~/.config/vosk-wrapper-1000/config.yaml`
 
 ### Advanced Recognition Options
 

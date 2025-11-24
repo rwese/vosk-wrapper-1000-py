@@ -23,8 +23,10 @@ def transcribe_file(
     """
     Transcribe an audio file using Vosk.
 
+    Supports WAV files with automatic conversion to mono and resampling to match the model's sample rate.
+
     Args:
-        audio_file: Path to the audio file to transcribe
+        audio_file: Path to the WAV audio file to transcribe (must be 16-bit)
         model_path: Path to the Vosk model (optional, will use default if not provided)
         output_file: Path to save transcription (optional, prints to stdout if not provided)
 
@@ -63,27 +65,79 @@ def transcribe_file(
 
     import wave
     import json
+    import numpy as np
 
     # Open the audio file
     wf = wave.open(audio_file, "rb")
-    if (
-        wf.getnchannels() != 1
-        or wf.getsampwidth() != 2
-        or wf.getframerate() != model_sample_rate
-    ):
+
+    # Get audio file properties
+    channels = wf.getnchannels()
+    sampwidth = wf.getsampwidth()
+    framerate = wf.getframerate()
+    nframes = wf.getnframes()
+
+    print(f"Input file: {audio_file}", file=sys.stderr)
+    print(f"  Channels: {channels}", file=sys.stderr)
+    print(f"  Sample width: {sampwidth} bytes", file=sys.stderr)
+    print(f"  Sample rate: {framerate} Hz", file=sys.stderr)
+    print(f"  Duration: {nframes / framerate:.2f} seconds", file=sys.stderr)
+
+    if sampwidth != 2:
         print(
-            f"Audio file must be WAV format mono PCM at {model_sample_rate}Hz",
+            f"Error: Only 16-bit (2 byte) WAV files are supported",
             file=sys.stderr,
         )
         sys.exit(1)
 
+    if channels > 1:
+        print(
+            f"  Note: Converting {channels}-channel audio to mono",
+            file=sys.stderr,
+        )
+
+    # Initialize audio processor for resampling if needed
+    audio_processor = AudioProcessor(
+        device_rate=framerate,
+        model_rate=model_sample_rate,
+        noise_filter_enabled=False,  # Disable noise reduction for simple transcribe
+        silence_threshold=50.0,  # Default silence threshold
+        normalize_audio=False,  # Disable normalization for simple transcribe
+        pre_roll_duration=0.0,  # No pre-roll for file transcribe
+        vad_hysteresis_chunks=1,  # Minimal VAD for file transcribe
+    )
+
+    print(
+        f"Processing audio (model expects {model_sample_rate} Hz)...",
+        file=sys.stderr,
+    )
+
     # Process the audio in chunks
     transcription = ""
+    chunk_size = 4000  # Process 4000 frames at a time
+
     while True:
-        data = wf.readframes(4000)
+        data = wf.readframes(chunk_size)
         if len(data) == 0:
             break
-        if rec.AcceptWaveform(data):
+
+        # Convert bytes to numpy array
+        audio_chunk = np.frombuffer(data, dtype=np.int16)
+
+        # Convert to mono first (silence detection must be done before other processing)
+        if channels > 1:
+            # Reshape interleaved multi-channel data to (frames, channels)
+            frames = len(audio_chunk) // channels
+            audio_multi = audio_chunk.reshape(frames, channels)
+            # Average all channels to create mono
+            mono_chunk = np.mean(audio_multi, axis=1).astype(np.int16)
+        else:
+            mono_chunk = audio_chunk
+
+        # Process audio through pipeline (resampling if needed)
+        processed_audio = audio_processor._process_mono_audio_chunk(mono_chunk)
+
+        # Send to Vosk
+        if rec.AcceptWaveform(bytes(processed_audio)):
             result = json.loads(rec.Result())
             transcription += result.get("text", "") + " "
 
@@ -118,8 +172,12 @@ def main():
         epilog="""
 Examples:
   vosk-transcribe audio.wav
-  vosk-transcribe audio.wav --model /path/to/model --output transcript.txt
-  vosk-transcribe audio.mp3 --output result.txt
+  vosk-transcribe audio.wav --model vosk-model-en-us-0.22 --output transcript.txt
+
+Supported formats:
+  - WAV files (16-bit PCM)
+  - Automatic mono conversion from stereo/multi-channel
+  - Automatic resampling to match model sample rate
         """,
     )
 

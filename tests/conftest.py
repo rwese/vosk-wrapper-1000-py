@@ -13,8 +13,8 @@ def ensure_test_model_downloaded():
     This is a session-scoped fixture that runs once at the beginning of the test session.
     It downloads the test model if it's not already present.
     """
-    from vosk_wrapper_1000.download_model import download_model, fetch_models
-    from vosk_wrapper_1000.xdg_paths import get_models_dir
+    from vosk_core.download_model import download_model, fetch_models
+    from vosk_core.xdg_paths import get_models_dir
 
     models_dir = get_models_dir()
     model_path = models_dir / TEST_MODEL

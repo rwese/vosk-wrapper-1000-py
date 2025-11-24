@@ -439,7 +439,6 @@ class SettingsTUI(App):
                 normalization_target_level=audio_settings.get(
                     "normalization_target_level", 0.3
                 ),
-                channels=1,
                 pre_roll_duration=audio_settings.get("pre_roll_duration", 0.5),
                 vad_hysteresis_chunks=audio_settings.get("vad_hysteresis_chunks", 10),
                 noise_reduction_min_rms_ratio=audio_settings.get(

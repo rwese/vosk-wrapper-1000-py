@@ -20,11 +20,22 @@ class AudioConfig:
     """Audio configuration settings."""
 
     device: str = ""
+    default_device: str = ""  # Default device name/ID, empty means system default
     blocksize: int = 8000
     samplerate: Optional[int] = None
     channels: int = 1
     dtype: str = "int16"
     noise_reduction: bool = True
+    # Audio processing settings
+    noise_reduction_enabled: bool = True
+    noise_reduction_level: float = 0.05
+    stationary_noise: bool = False
+    silence_threshold: float = 50.0
+    normalize_audio: bool = False
+    normalization_target_level: float = 0.3
+    vad_hysteresis_chunks: int = 10
+    pre_roll_duration: float = 0.5
+    noise_reduction_min_rms_ratio: float = 0.5
 
 
 @dataclass
@@ -137,9 +148,7 @@ class ConfigManager:
             return None
 
         # Check XDG config directory
-        xdg_config = (
-            self.xdg_paths.get_config_dir() / "vosk-wrapper-1000" / "config.yaml"
-        )
+        xdg_config = self.xdg_paths.get_config_dir() / "config.yaml"
         if xdg_config.exists():
             return xdg_config
 
@@ -268,11 +277,21 @@ class ConfigManager:
         config_dict = {
             "audio": {
                 "device": config.audio.device,
+                "default_device": config.audio.default_device,
                 "blocksize": config.audio.blocksize,
                 "samplerate": config.audio.samplerate,
                 "channels": config.audio.channels,
                 "dtype": config.audio.dtype,
                 "noise_reduction": config.audio.noise_reduction,
+                "noise_reduction_enabled": config.audio.noise_reduction_enabled,
+                "noise_reduction_level": config.audio.noise_reduction_level,
+                "stationary_noise": config.audio.stationary_noise,
+                "silence_threshold": config.audio.silence_threshold,
+                "normalize_audio": config.audio.normalize_audio,
+                "normalization_target_level": config.audio.normalization_target_level,
+                "vad_hysteresis_chunks": config.audio.vad_hysteresis_chunks,
+                "pre_roll_duration": config.audio.pre_roll_duration,
+                "noise_reduction_min_rms_ratio": config.audio.noise_reduction_min_rms_ratio,
             },
             "model": {
                 "path": config.model.path,

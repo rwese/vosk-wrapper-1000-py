@@ -840,6 +840,32 @@ def cmd_terminate(args):
         sys.exit(1)
 
 
+def cmd_toggle(args):
+    """Toggle listening state on a named instance."""
+    from .ipc_client import ConnectionError as IPCConnectionError
+    from .ipc_client import IPCClient, get_socket_path
+
+    socket_path = get_socket_path(args.name)
+
+    try:
+        with IPCClient(socket_path) as client:
+            result = client.send_command("toggle")
+            action = result.get("action", "")
+            if action == "started":
+                print(f"✓ Listening started on instance '{args.name}'")
+            elif action == "stopped":
+                print(f"✓ Listening stopped on instance '{args.name}'")
+            else:
+                print(f"✓ Toggled listening on instance '{args.name}'")
+    except IPCConnectionError:
+        print(
+            f"Error: Cannot connect to instance '{args.name}' (socket: {socket_path})",
+            file=sys.stderr,
+        )
+        print("Make sure the instance is running.", file=sys.stderr)
+        sys.exit(1)
+
+
 def cmd_list(args):
     """List all running instances."""
     from .pid_manager import list_instances
@@ -1168,7 +1194,6 @@ def cmd_transcribe_file(args):
                 silence_threshold=args.silence_threshold,
                 normalize_audio=args.normalize_audio,
                 normalization_target_level=args.normalize_target_level,
-                channels=channels,
                 vad_hysteresis_chunks=getattr(args, "vad_hysteresis", 10),
                 noise_reduction_min_rms_ratio=getattr(
                     args, "noise_reduction_min_rms_ratio", 0.5
@@ -1189,6 +1214,12 @@ def cmd_transcribe_file(args):
 
             if args.partial_words:
                 rec.SetPartialWords(True)
+
+            if getattr(args, "max_alternatives", 1) > 1:
+                rec.SetMaxAlternatives(args.max_alternatives)
+
+            if getattr(args, "max_alternatives", 1) > 1:
+                rec.SetMaxAlternatives(args.max_alternatives)
 
             # Setup audio recorder if requested
             audio_recorder = None
@@ -1223,7 +1254,14 @@ def cmd_transcribe_file(args):
                 audio_chunk = np.frombuffer(data, dtype=np.int16)
 
                 # Convert to mono first (silence detection must be done before other processing)
-                mono_chunk = audio_processor.convert_to_mono(audio_chunk)
+                if channels > 1:
+                    # Reshape interleaved multi-channel data to (frames, channels)
+                    frames = len(audio_chunk) // channels
+                    audio_multi = audio_chunk.reshape(frames, channels)
+                    # Average all channels to create mono
+                    mono_chunk = np.mean(audio_multi, axis=1).astype(np.int16)
+                else:
+                    mono_chunk = audio_chunk
 
                 # Check if audio contains meaningful sound (silence detection first)
                 if not audio_processor.has_audio(mono_chunk):
@@ -1239,13 +1277,23 @@ def cmd_transcribe_file(args):
                 # Send to Vosk
                 if rec.AcceptWaveform(bytes(processed_audio)):
                     result = json.loads(rec.Result())
-                    text = result.get("text", "")
+                    # Handle alternatives if enabled
+                    if "alternatives" in result and result["alternatives"]:
+                        # Use the first (best) alternative
+                        text = result["alternatives"][0].get("text", "")
+                    else:
+                        text = result.get("text", "")
                     if text:
                         transcript_lines.append(text)
 
             # Get final result
             final_result = json.loads(rec.FinalResult())
-            final_text = final_result.get("text", "")
+            # Handle alternatives if enabled
+            if "alternatives" in final_result and final_result["alternatives"]:
+                # Use the first (best) alternative
+                final_text = final_result["alternatives"][0].get("text", "")
+            else:
+                final_text = final_result.get("text", "")
             if final_text:
                 transcript_lines.append(final_text)
 
@@ -1365,6 +1413,12 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
         default=None,
         help="Grammar/vocabulary to restrict recognition (space-separated words)",
     )
+    daemon_parser.add_argument(
+        "--max-alternatives",
+        type=int,
+        default=1,
+        help="Maximum number of alternative transcriptions to return (default: 1)",
+    )
 
     # Audio processing options
     daemon_parser.add_argument(
@@ -1457,6 +1511,13 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
         "name", nargs="?", default="default", help="Instance name"
     )
 
+    toggle_parser = subparsers.add_parser(
+        "toggle", help="Toggle listening state on a running instance"
+    )
+    toggle_parser.add_argument(
+        "name", nargs="?", default="default", help="Instance name"
+    )
+
     subparsers.add_parser("list", help="List all running instances")
 
     # IPC send command
@@ -1510,8 +1571,8 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
     stream_parser.add_argument(
         "--timeout",
         type=float,
-        default=30.0,
-        help="Maximum time to wait for speech in seconds when auto-starting (default: 30.0)",
+        default=120.0,
+        help="Maximum time to wait for speech in seconds when auto-starting (default: 120.0)",
     )
 
     # Transcribe file command
@@ -1610,6 +1671,12 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
         default=None,
         help="Grammar/vocabulary to restrict recognition (space-separated words)",
     )
+    transcribe_parser.add_argument(
+        "--max-alternatives",
+        type=int,
+        default=1,
+        help="Maximum number of alternative transcriptions to return (default: 1)",
+    )
 
     args = parser.parse_args()
 
@@ -1629,6 +1696,8 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
         cmd_stop(args)
     elif args.command == "terminate":
         cmd_terminate(args)
+    elif args.command == "toggle":
+        cmd_toggle(args)
     elif args.command == "list":
         cmd_list(args)
     elif args.command == "send":

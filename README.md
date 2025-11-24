@@ -17,6 +17,7 @@ A modular speech recognition toolkit using [Vosk](https://alphacephei.com/vosk/)
 - **Improved Device Management**: Enhanced device compatibility validation and management
 
 ### **New Features**
+- **Interactive Settings TUI**: `vosk-settings-tui` - Visual interface for experimenting with audio settings
 - **Configurable Noise Reduction**: `--noise-reduction 0.0-1.0` (default: 0.2)
 - **Noise Type Selection**: `--stationary-noise` vs `--non-stationary-noise`
 - **Audio Recording**: `--record-audio filename.wav` records exactly what Vosk receives
@@ -36,7 +37,11 @@ uv tool install git+https://github.com/rwese/vosk-wrapper-1000-py
 pip install git+https://github.com/rwese/vosk-wrapper-1000-py
 ```
 
-After installation, the commands `vosk-wrapper-1000`, `vosk-download-model-1000`, and `vosk-transcribe-file` will be available in your PATH.
+After installation, these commands will be available in your PATH:
+- `vosk-wrapper-1000` - Main daemon for continuous speech recognition
+- `vosk-download-model-1000` - Download and manage Vosk models
+- `vosk-transcribe-file` - Transcribe audio files
+- `vosk-settings-tui` - Interactive TUI for audio settings configuration
 
 ## Package Structure
 
@@ -83,7 +88,16 @@ If you installed the package, use the commands directly:
     vosk-download-model-1000 --delete vosk-model-small-en-us-0.15
     ```
 
-2.  **Start the Daemon**
+2.  **Configure Audio Settings (Optional)**
+    ```bash
+    # Launch interactive settings TUI
+    vosk-settings-tui
+
+    # Navigate with Tab, edit values, press S to save
+    # See docs/SETTINGS_TUI.md for detailed guide
+    ```
+
+3.  **Start the Daemon**
     ```bash
     # Run with default settings (runs as daemon in background)
     vosk-wrapper-1000 daemon

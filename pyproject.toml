@@ -18,12 +18,14 @@ dependencies = [
     "noisereduce",
     "soxr>=0.3.7",
     "PyYAML",
+    "textual>=0.47.0",
 ]
 
 [project.scripts]
 vosk-wrapper-1000 = "vosk_wrapper_1000.main:main"
 vosk-download-model-1000 = "vosk_core.download_model:main"
 vosk-transcribe-file = "vosk_transcribe.main:main"
+vosk-settings-tui = "vosk_wrapper_1000.settings_tui:main"
 
 [tool.hatch.build.targets.wheel]
 only-include = [
@@ -49,6 +51,7 @@ dev = [
     "isort>=5.12.0",
     "types-PyYAML>=6.0.0",
     "types-requests>=2.31.0",
+    "pytest-xdist>=3.6.1",
 ]
 
 [tool.pytest.ini_options]

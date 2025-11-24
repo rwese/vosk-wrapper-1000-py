@@ -9,7 +9,7 @@ import soxr
 
 
 class AudioProcessor:
-    """Handles audio processing including noise filtering and resampling."""
+    """Handles mono audio processing including noise filtering and resampling."""
 
     def __init__(
         self,
@@ -21,8 +21,7 @@ class AudioProcessor:
         silence_threshold: float = 50.0,
         normalize_audio: bool = False,
         normalization_target_level: float = 0.3,
-        channels: int = 1,
-        pre_roll_duration: float = 2.0,
+        pre_roll_duration: float = 0.5,
         vad_hysteresis_chunks: int = 10,
         noise_reduction_min_rms_ratio: float = 0.5,
     ):
@@ -34,7 +33,6 @@ class AudioProcessor:
         self.silence_threshold = silence_threshold
         self.normalize_audio = normalize_audio
         self.normalization_target_level = normalization_target_level
-        self.channels = channels
         self.pre_roll_duration = pre_roll_duration
         self.vad_hysteresis_chunks = vad_hysteresis_chunks
         self.noise_reduction_min_rms_ratio = noise_reduction_min_rms_ratio
@@ -62,30 +60,6 @@ class AudioProcessor:
             self.soxr_resampler = soxr.ResampleStream(
                 in_rate=device_rate, out_rate=model_rate, num_channels=1, quality="HQ"
             )
-
-    def convert_to_mono(self, audio_data: np.ndarray) -> np.ndarray:
-        """Convert stereo or multi-channel audio to mono.
-
-        Args:
-            audio_data: Audio data as int16 numpy array
-                       If stereo: shape is (frames * 2,) with interleaved L/R samples
-                       If multi-channel: shape is (frames * channels,)
-
-        Returns:
-            Mono audio as int16 numpy array with shape (frames,)
-        """
-        if self.channels == 1:
-            # Already mono, return as-is
-            return audio_data
-
-        # Reshape interleaved multi-channel data to (frames, channels)
-        frames = len(audio_data) // self.channels
-        audio_multi = audio_data.reshape(frames, self.channels)
-
-        # Average all channels to create mono (prevents clipping better than just taking left)
-        audio_mono = np.mean(audio_multi, axis=1).astype(np.int16)
-
-        return audio_mono
 
     def has_audio(self, audio_data: np.ndarray) -> bool:
         """Check if audio data contains meaningful sound above silence threshold.
@@ -145,13 +119,13 @@ class AudioProcessor:
         """Process a chunk of audio data with noise filtering and resampling.
 
         Args:
-            audio_data: Audio data as int16 numpy array (mono or multi-channel)
+            audio_data: Audio data as int16 numpy array (mono)
 
         Returns:
             Processed mono audio as int16 numpy array
         """
-        # Convert to mono if needed (must be first step)
-        processed_audio = self.convert_to_mono(audio_data)
+        # Audio is already mono
+        processed_audio = audio_data
 
         # Apply normalization if enabled (before noise reduction)
         if self.normalize_audio:
@@ -286,16 +260,31 @@ class AudioProcessor:
     def get_pre_roll_audio(self) -> np.ndarray:
         """Get accumulated pre-roll audio from the ring buffer.
 
+        The pre-roll buffer stores unprocessed mono audio. This method processes
+        all buffered chunks and returns them ready for speech recognition.
+
         Returns:
-            Concatenated audio from the ring buffer, limited to pre_roll_samples
+            Processed and concatenated audio from the ring buffer, limited to pre_roll_samples
         """
         if not self.pre_roll_buffer:
             return np.array([], dtype=np.int16)
 
-        # Concatenate all buffered chunks
-        buffered_audio = np.concatenate(list(self.pre_roll_buffer))
+        # Process each buffered chunk through the audio pipeline
+        # (normalization, noise reduction, resampling)
+        processed_chunks = []
+        for chunk in self.pre_roll_buffer:
+            processed_chunk = self._process_mono_audio_chunk(chunk)
+            if len(processed_chunk) > 0:
+                processed_chunks.append(processed_chunk)
+
+        if not processed_chunks:
+            return np.array([], dtype=np.int16)
+
+        # Concatenate all processed chunks
+        buffered_audio = np.concatenate(processed_chunks)
 
         # Trim to pre_roll_duration (keep only the most recent pre_roll_samples)
+        # Note: pre_roll_samples is at model_rate, which matches processed audio rate
         if len(buffered_audio) > self.pre_roll_samples:
             buffered_audio = buffered_audio[-self.pre_roll_samples :]
 
@@ -308,7 +297,7 @@ class AudioProcessor:
         preventing the cutting off of word beginnings.
 
         Args:
-            audio_data: Raw audio data as int16 numpy array (mono or multi-channel)
+            audio_data: Raw audio data as int16 numpy array (mono)
 
         Returns:
             List of audio chunks to send to speech recognition:
@@ -316,23 +305,28 @@ class AudioProcessor:
             - Pre-roll audio + current chunk if speech just started
             - Current chunk if continuing speech
         """
-        # Convert to mono first (silence detection must be done before other processing)
-        mono_audio = self.convert_to_mono(audio_data)
+        # Audio is already mono
+        mono_audio = audio_data
 
-        # Check if this chunk contains audio above threshold (silence detection first)
-        has_audio = self.has_audio(mono_audio)
+        # Process the audio (normalization, noise reduction, resampling)
+        # IMPORTANT: We must process BEFORE checking has_audio, because:
+        # 1. Noise reduction can remove background noise, revealing true speech signal
+        # 2. Normalization can amplify quiet speech to detectable levels
+        # 3. Checking on raw audio causes false negatives for quiet/distant speech
+        processed_audio = self._process_mono_audio_chunk(mono_audio)
 
-        # If silence detected and not currently in speech, skip all further processing
+        # Check if processed audio contains meaningful sound above threshold
+        # Note: Check at model_rate after resampling for accurate RMS calculation
+        has_audio = self.has_audio(processed_audio)
+
+        # If silence detected and not currently in speech, skip sending to recognition
         if not has_audio and not self.in_speech:
-            # Add to ring buffer for potential pre-roll
+            # Add original mono audio to ring buffer for potential pre-roll
+            # (Store unprocessed to avoid accumulating processing artifacts)
             if len(mono_audio) > 0:
                 self.pre_roll_buffer.append(mono_audio.copy())
             # Return empty list (don't send to recognition)
             return []
-
-        # Process the audio (normalization, noise reduction, resampling)
-        # Note: mono conversion already done above
-        processed_audio = self._process_mono_audio_chunk(mono_audio)
 
         result = []
 
@@ -362,7 +356,8 @@ class AudioProcessor:
             if self.in_speech:
                 # In speech but current chunk is silent
                 if self.consecutive_silent_chunks <= self.vad_hysteresis_chunks:
-                    # Allow natural pauses in speech - still send the silent chunk
+                    # Allow natural pauses in speech - keep gate open AND send chunk
+                    # This allows the recognizer to handle natural pauses in speech
                     result.append(processed_audio)
                 else:
                     # Too many consecutive silent chunks - exit speech mode
