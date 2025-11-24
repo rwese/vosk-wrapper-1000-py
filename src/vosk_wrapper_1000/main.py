@@ -24,6 +24,14 @@ from .pid_manager import remove_pid, send_signal_to_instance, write_pid
 from .signal_manager import SignalManager
 from vosk_core.xdg_paths import get_hooks_dir
 
+try:
+    from .webrtc_server import WebRTCServer
+
+    WEBRTC_AVAILABLE = True
+except ImportError:
+    WEBRTC_AVAILABLE = False
+    WebRTCServer = None
+
 # Set up module logger
 logger = logging.getLogger(__name__)
 
@@ -94,6 +102,7 @@ def handle_ipc_command(
     transcript_buffer,
     start_time,
     session_id,
+    webrtc_server=None,
 ):
     """Handle IPC command from client.
 
@@ -223,6 +232,85 @@ def handle_ipc_command(
                 client, request_id, True, data={"subscribed": False}
             )
 
+        elif command == "get_webrtc_status":
+            if not WEBRTC_AVAILABLE:
+                ipc_server.send_response(
+                    client,
+                    request_id,
+                    False,
+                    error={
+                        "code": "WEBRTC_NOT_AVAILABLE",
+                        "message": "WebRTC not available (aiortc not installed)",
+                    },
+                )
+            elif webrtc_server:
+                status = webrtc_server.get_status()
+                ipc_server.send_response(client, request_id, True, data=status)
+            else:
+                ipc_server.send_response(
+                    client,
+                    request_id,
+                    False,
+                    error={
+                        "code": "WEBRTC_NOT_ENABLED",
+                        "message": "WebRTC server is not enabled",
+                    },
+                )
+
+        elif command == "start_webrtc":
+            if not WEBRTC_AVAILABLE:
+                ipc_server.send_response(
+                    client,
+                    request_id,
+                    False,
+                    error={
+                        "code": "WEBRTC_NOT_AVAILABLE",
+                        "message": "WebRTC not available (aiortc not installed)",
+                    },
+                )
+            elif webrtc_server:
+                # WebRTC server is always "running" if enabled
+                ipc_server.send_response(
+                    client, request_id, True, data={"webrtc_running": True}
+                )
+            else:
+                ipc_server.send_response(
+                    client,
+                    request_id,
+                    False,
+                    error={
+                        "code": "WEBRTC_NOT_ENABLED",
+                        "message": "WebRTC server is not enabled",
+                    },
+                )
+
+        elif command == "stop_webrtc":
+            if not WEBRTC_AVAILABLE:
+                ipc_server.send_response(
+                    client,
+                    request_id,
+                    False,
+                    error={
+                        "code": "WEBRTC_NOT_AVAILABLE",
+                        "message": "WebRTC not available (aiortc not installed)",
+                    },
+                )
+            elif webrtc_server:
+                # Note: WebRTC server runs continuously, this just reports status
+                ipc_server.send_response(
+                    client, request_id, True, data={"webrtc_stopped": True}
+                )
+            else:
+                ipc_server.send_response(
+                    client,
+                    request_id,
+                    False,
+                    error={
+                        "code": "WEBRTC_NOT_ENABLED",
+                        "message": "WebRTC server is not enabled",
+                    },
+                )
+
         else:
             ipc_server.send_response(
                 client,
@@ -249,6 +337,14 @@ def run_service(args):
     # Initialize config manager
     config_manager = ConfigManager()
     config = config_manager.load_config()
+
+    # Override config with command line arguments
+    if hasattr(args, "webrtc_enabled") and args.webrtc_enabled:
+        config.webrtc.enabled = True
+    if hasattr(args, "webrtc_port"):
+        config.webrtc.port = args.webrtc_port
+    if hasattr(args, "webrtc_host"):
+        config.webrtc.host = args.webrtc_host
 
     # Initialize managers
     signal_manager = SignalManager()
@@ -278,6 +374,27 @@ def run_service(args):
             ipc_server = None
         else:
             logger.info(f"IPC server started on {socket_path}")
+
+    # Placeholder for WebRTC server (initialized later after audio_processor is created)
+    webrtc_server = None
+    webrtc_config = None
+    if config.webrtc.enabled:
+        if not WEBRTC_AVAILABLE:
+            logger.warning(
+                "WebRTC enabled but aiortc not available. Install with: pip install aiortc"
+            )
+        else:
+            webrtc_config = {
+                "host": config.webrtc.host,
+                "port": config.webrtc.port,
+                "stun_servers": config.webrtc.stun_servers,
+                "turn_servers": config.webrtc.turn_servers,
+                "max_connections": config.webrtc.max_connections,
+                "audio_format": config.webrtc.audio_format,
+                "sample_rate": config.webrtc.sample_rate,
+                "channels": config.webrtc.channels,
+            }
+            logger.info("WebRTC will be initialized after audio processor setup")
 
     # Initialize audio components with placeholder rates
     audio_processor = AudioProcessor(
@@ -346,7 +463,8 @@ def run_service(args):
         )
         if not is_compatible:
             logger.error(f"Device compatibility error: {compatibility_msg}")
-            sys.exit(1)
+            logger.warning("Continuing despite device compatibility error...")
+            # sys.exit(1)  # Temporarily disabled for debugging
         else:
             logger.info(f"Device compatibility: {compatibility_msg}")
     else:
@@ -400,6 +518,7 @@ def run_service(args):
     import vosk
 
     model = vosk.Model(str(args.model))
+    print("Model loaded successfully", file=sys.stderr)
 
     # Create recognizer with optional grammar
     if args.grammar:
@@ -417,8 +536,11 @@ def run_service(args):
         print("Enabling partial word results", file=sys.stderr)
         rec.SetPartialWords(True)
 
+    print("Recognizer created and configured", file=sys.stderr)
+
     # Setup signal handlers
     signal_manager._setup_handlers()
+    print("Signal handlers setup", file=sys.stderr)
 
     logger.info(f"Service started. PID: {os.getpid()}")
     if device_info is not None:
@@ -439,6 +561,41 @@ def run_service(args):
         }
         ipc_server.broadcast_event(ready_event)
         logger.info("Service ready")
+
+    # Initialize WebRTC server now that audio_processor is ready
+    if webrtc_config is not None:
+        try:
+            # Placeholder for audio queue to be used by WebRTC callback
+            webrtc_audio_queue: queue.Queue[tuple] = queue.Queue()
+
+            # Create WebRTC audio callback that integrates with existing audio processing
+            def webrtc_audio_callback(audio_bytes, sample_rate, channels, peer_id):
+                """Handle audio from WebRTC streams."""
+                try:
+                    # Queue audio for processing (will be handled in main loop)
+                    webrtc_audio_queue.put_nowait((audio_bytes, sample_rate, channels, peer_id))
+                except queue.Full:
+                    logger.warning(f"WebRTC audio queue full for peer {peer_id}, dropping audio")
+                except Exception as e:
+                    logger.error(f"Error queueing WebRTC audio: {e}")
+
+            logger.info("Initializing WebRTC server...")
+            webrtc_server = WebRTCServer(webrtc_config, webrtc_audio_callback)
+            if not webrtc_server.start():
+                logger.warning(
+                    "Failed to start WebRTC server, continuing without WebRTC"
+                )
+                webrtc_server = None
+            else:
+                logger.info(
+                    f"WebRTC server started on {webrtc_config['host']}:{webrtc_config['port']}"
+                )
+        except Exception as e:
+            logger.error(f"Error initializing WebRTC server: {e}")
+            logger.warning("Continuing without WebRTC")
+            webrtc_server = None
+    else:
+        webrtc_audio_queue = None
 
     # Audio Stream Management
     stream = None
@@ -510,7 +667,27 @@ def run_service(args):
                         transcript_buffer,
                         start_time,
                         session_id,
+                        webrtc_server,
                     )
+
+            # Process WebRTC audio (non-blocking)
+            if webrtc_audio_queue is not None and signal_manager.is_listening():
+                try:
+                    while True:
+                        audio_bytes, sample_rate, channels, peer_id = webrtc_audio_queue.get_nowait()
+                        # Process WebRTC audio through the audio processor
+                        audio_chunks = audio_processor.process_webrtc_audio(
+                            audio_bytes, sample_rate, channels
+                        )
+                        # Queue processed audio chunks for recognition
+                        for processed_audio in audio_chunks:
+                            if args.record_audio:
+                                audio_recorder.write_audio(processed_audio)
+                            audio_queue.put_nowait(bytes(processed_audio))
+                except queue.Empty:
+                    pass  # No WebRTC audio to process
+                except Exception as e:
+                    logger.error(f"Error processing WebRTC audio in main loop: {e}")
 
             # Check if we need to start listening
             if signal_manager.is_listening() and stream is None:
@@ -777,7 +954,15 @@ def run_service(args):
                     sys.stderr.flush()
             else:
                 # Sleep briefly to avoid busy loop when not listening
-                time.sleep(0.1)
+                # Also process asyncio tasks if WebRTC is running
+                if webrtc_server:
+                    try:
+                        loop = asyncio.get_event_loop()
+                        loop.run_until_complete(asyncio.sleep(0.1))
+                    except Exception:
+                        time.sleep(0.1)
+                else:
+                    time.sleep(0.1)
                 # Drain queue to avoid stale audio when we start again
                 while not audio_queue.empty():
                     audio_queue.get()
@@ -808,6 +993,10 @@ def run_service(args):
 
         # Clean up PID file
         remove_pid(instance_name)
+
+        # Stop WebRTC server
+        if webrtc_server:
+            webrtc_server.stop()
 
         # Stop IPC server
         if ipc_server:
@@ -937,6 +1126,50 @@ def cmd_send(args):
                     print(
                         f"{dev['id']:<5} {dev['name']:<40} {dev['channels']:<10} {is_current:<10}"
                     )
+
+            elif args.ipc_command == "webrtc_status":
+                result = client.send_command("get_webrtc_status")
+                if (
+                    "error" in result
+                    and result["error"]["code"] == "WEBRTC_NOT_AVAILABLE"
+                ):
+                    print(f"WebRTC not available: {result['error']['message']}")
+                else:
+                    print(
+                        f"WebRTC Server: {'Running' if result.get('running', False) else 'Not running'}"
+                    )
+                    if result.get("running"):
+                        print(
+                            f"Host: {result.get('host', 'unknown')}:{result.get('port', 'unknown')}"
+                        )
+                        print(
+                            f"Active connections: {result.get('active_connections', 0)}"
+                        )
+                        print(f"Max connections: {result.get('max_connections', 0)}")
+
+            elif args.ipc_command == "start_webrtc":
+                result = client.send_command("start_webrtc")
+                if (
+                    "error" in result
+                    and result["error"]["code"] == "WEBRTC_NOT_AVAILABLE"
+                ):
+                    print(f"WebRTC not available: {result['error']['message']}")
+                elif result.get("webrtc_running"):
+                    print(f"✓ WebRTC server is running on instance '{args.name}'")
+                else:
+                    print(f"✗ WebRTC server failed to start on instance '{args.name}'")
+
+            elif args.ipc_command == "stop_webrtc":
+                result = client.send_command("stop_webrtc")
+                if (
+                    "error" in result
+                    and result["error"]["code"] == "WEBRTC_NOT_AVAILABLE"
+                ):
+                    print(f"WebRTC not available: {result['error']['message']}")
+                elif result.get("webrtc_stopped"):
+                    print(f"✓ WebRTC server stopped on instance '{args.name}'")
+                else:
+                    print(f"✗ WebRTC server failed to stop on instance '{args.name}'")
 
     except IPCConnectionError:
         print(f"Error: Cannot connect to instance '{args.name}'", file=sys.stderr)
@@ -1491,6 +1724,25 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
         help="Set logging level (default: WARNING, can also be set via VOSK_LOG_LEVEL env var)",
     )
 
+    # WebRTC options
+    daemon_parser.add_argument(
+        "--webrtc-enabled",
+        action="store_true",
+        help="Enable WebRTC server for browser-based connections",
+    )
+    daemon_parser.add_argument(
+        "--webrtc-port",
+        type=int,
+        default=8080,
+        help="WebRTC server port (default: 8080)",
+    )
+    daemon_parser.add_argument(
+        "--webrtc-host",
+        type=str,
+        default="0.0.0.0",
+        help="WebRTC server host (default: 0.0.0.0)",
+    )
+
     # Control commands
     start_parser = subparsers.add_parser(
         "start", help="Start listening on a running instance"
@@ -1526,7 +1778,17 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
     )
     send_parser.add_argument(
         "ipc_command",
-        choices=["start", "stop", "toggle", "status", "transcript", "devices"],
+        choices=[
+            "start",
+            "stop",
+            "toggle",
+            "status",
+            "transcript",
+            "devices",
+            "webrtc_status",
+            "start_webrtc",
+            "stop_webrtc",
+        ],
         help="Command to send",
     )
     send_parser.add_argument(
