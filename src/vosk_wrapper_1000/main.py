@@ -20,6 +20,7 @@ from vosk_core.device_manager import DeviceManager
 from .hook_manager import HookManager
 from .ipc_server import IPCServer
 from vosk_core.model_manager import ModelManager
+from .pid_manager import remove_pid, write_pid
 from .signal_manager import SignalManager
 from vosk_core.xdg_paths import get_hooks_dir
 
