@@ -379,7 +379,12 @@ Hooks with `json` in their filename receive structured JSON data instead of plai
 }
 ```
 
-**Example JSON Hook:**
+**Available JSON Hook Examples:**
+- `hooks/start/02_json_logger.sh` - Logs when listening starts
+- `hooks/line/03_json_processor.sh` - Processes each transcript line with analysis
+- `hooks/stop/02_json_example.sh` - Handles final transcript with session statistics
+
+**Creating a JSON Hook:**
 ```bash
 # Create a JSON hook (note 'json' in filename)
 echo '#!/bin/bash' > ~/.config/vosk-wrapper-1000/hooks/line/01_json_processor.sh
@@ -387,6 +392,13 @@ echo 'json_data=$(cat)' >> ~/.config/vosk-wrapper-1000/hooks/line/01_json_proces
 echo 'echo "Received JSON: $json_data" >&2' >> ~/.config/vosk-wrapper-1000/hooks/line/01_json_processor.sh
 chmod +x ~/.config/vosk-wrapper-1000/hooks/line/01_json_processor.sh
 ```
+
+**JSON Hook Use Cases:**
+- Structured logging with timestamps
+- Integration with external APIs
+- Advanced text analysis and processing
+- Session statistics and metrics
+- Conditional actions based on transcript content
 
 ### Creating Hooks
 
