@@ -167,6 +167,82 @@ exit 102
         result = hm.run_hooks("abort", async_mode=False)
         self.assertEqual(result, 102)
 
+    def test_json_hook_formatting(self):
+        """Test that hooks with '_json.' in name receive JSON formatted payload."""
+        output_file = Path(self.temp_dir) / "hook_output_json.txt"
+        hook_content = f"""#!/bin/bash
+input=$(cat)
+echo "$input" > {output_file}
+"""
+        # Create a hook with "_json." in the name
+        hook_dir = self.hooks_dir / "stop"
+        hook_dir.mkdir(exist_ok=True)
+        hook_path = hook_dir / "01_json_test.sh"  # Contains "_json." in filename
+        hook_path.write_text(hook_content)
+        hook_path.chmod(0o755)
+
+        hm = HookManager(str(self.hooks_dir))
+
+        result = hm.run_hooks("stop", payload="hello world", async_mode=False)
+
+        self.assertEqual(result, 0)
+        self.assertTrue(output_file.exists())
+        content = output_file.read_text().strip()
+
+        # Parse the JSON and verify structure
+        import json
+
+        data = json.loads(content)
+        self.assertEqual(data["type"], "transcript")
+        self.assertEqual(data["data"], "hello world")
+        self.assertEqual(data["event"], "stop")
+        self.assertIsInstance(data["timestamp"], float)
+
+    def test_regular_hook_vs_json_hook(self):
+        """Test that regular hooks get plain text while JSON hooks get JSON."""
+        # Create regular hook
+        output_file_regular = Path(self.temp_dir) / "hook_output_regular.txt"
+        hook_content_regular = f"""#!/bin/bash
+input=$(cat)
+echo "$input" > {output_file_regular}
+"""
+        hook_dir = self.hooks_dir / "stop"
+        hook_dir.mkdir(exist_ok=True)
+        hook_path_regular = hook_dir / "01_regular.sh"
+        hook_path_regular.write_text(hook_content_regular)
+        hook_path_regular.chmod(0o755)
+
+        # Create JSON hook
+        output_file_json = Path(self.temp_dir) / "hook_output_json.txt"
+        hook_content_json = f"""#!/bin/bash
+input=$(cat)
+echo "$input" > {output_file_json}
+"""
+        hook_path_json = hook_dir / "02_json_test.sh"
+        hook_path_json.write_text(hook_content_json)
+        hook_path_json.chmod(0o755)
+
+        hm = HookManager(str(self.hooks_dir))
+
+        result = hm.run_hooks("stop", payload="test data", async_mode=False)
+
+        self.assertEqual(result, 0)
+
+        # Check regular hook got plain text
+        self.assertTrue(output_file_regular.exists())
+        content_regular = output_file_regular.read_text().strip()
+        self.assertEqual(content_regular, "test data")
+
+        # Check JSON hook got JSON
+        self.assertTrue(output_file_json.exists())
+        content_json = output_file_json.read_text().strip()
+        import json
+
+        data = json.loads(content_json)
+        self.assertEqual(data["type"], "transcript")
+        self.assertEqual(data["data"], "test data")
+        self.assertEqual(data["event"], "stop")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,7 +1,9 @@
+import json
 import os
 import subprocess
 import sys
 import threading
+import time
 from typing import Optional
 
 
@@ -29,7 +31,7 @@ class HookManager:
 
         return sorted(hooks)
 
-    def _execute_hook(self, hook, cmd, payload, callback=None):
+    def _execute_hook(self, hook, cmd, payload, event_name, callback=None):
         """
         Internal method to execute a single hook in a thread.
 
@@ -42,15 +44,32 @@ class HookManager:
         try:
             print(f"  Executing hook: {hook}", file=sys.stderr)
 
+            # Check if this is a JSON hook (contains "_json." in filename)
+            hook_name = os.path.basename(hook)
+            is_json_hook = "json" in hook_name
+
+            # Format payload for JSON hooks
+            if is_json_hook and payload is not None:
+                json_payload = json.dumps(
+                    {
+                        "type": "transcript",
+                        "data": payload,
+                        "timestamp": time.time(),
+                        "event": event_name,
+                    }
+                )
+            else:
+                json_payload = payload
+
             process = subprocess.Popen(
                 cmd,
-                stdin=subprocess.PIPE if payload is not None else None,
+                stdin=subprocess.PIPE if json_payload is not None else None,
                 stdout=sys.stdout,  # Forward stdout to main stdout
                 stderr=sys.stderr,  # Forward stderr to main stderr
                 text=True,
             )
 
-            _, _ = process.communicate(input=payload)
+            _, _ = process.communicate(input=json_payload)
             returncode = process.returncode
 
             if returncode == 100:
@@ -119,7 +138,7 @@ class HookManager:
 
                     thread = threading.Thread(
                         target=self._execute_hook,
-                        args=(hook, cmd, payload, callback),
+                        args=(hook, cmd, payload, event_name, callback),
                         daemon=True,
                         name=f"Hook-{event_name}-{os.path.basename(hook)}",
                     )
@@ -144,15 +163,32 @@ class HookManager:
                     if args:
                         cmd.extend(args)
 
+                    # Check if this is a JSON hook (contains "_json." in filename)
+                    hook_name = os.path.basename(hook)
+                    is_json_hook = "json" in hook_name
+
+                    # Format payload for JSON hooks
+                    if is_json_hook and payload is not None:
+                        json_payload = json.dumps(
+                            {
+                                "type": "transcript",
+                                "data": payload,
+                                "timestamp": time.time(),
+                                "event": event_name,
+                            }
+                        )
+                    else:
+                        json_payload = payload
+
                     process = subprocess.Popen(
                         cmd,
-                        stdin=subprocess.PIPE if payload is not None else None,
+                        stdin=subprocess.PIPE if json_payload is not None else None,
                         stdout=sys.stdout,  # Forward stdout to main stdout
                         stderr=sys.stderr,  # Forward stderr to main stderr
                         text=True,
                     )
 
-                    _, _ = process.communicate(input=payload)
+                    _, _ = process.communicate(input=json_payload)
 
                     if process.returncode == 100:
                         print(
