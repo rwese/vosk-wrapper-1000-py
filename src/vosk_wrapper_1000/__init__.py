@@ -10,12 +10,12 @@ __author__ = "Vosk Simple Contributors"
 
 from vosk_core.audio_backend import AudioBackend
 from vosk_core.audio_processor import AudioProcessor
-from .audio_recorder import AudioRecorder
-from .device_manager import DeviceManager
-from .download_model import main as download_model_main
 from vosk_core.model_manager import ModelManager
 from vosk_core.xdg_paths import get_default_model_path, get_models_dir
 
+from .audio_recorder import AudioRecorder
+from .device_manager import DeviceManager
+from .download_model import main as download_model_main
 from .hook_manager import HookManager
 from .ipc_client import IPCClient
 from .ipc_server import IPCServer

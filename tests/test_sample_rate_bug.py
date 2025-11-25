@@ -14,8 +14,8 @@ import numpy as np
 import sounddevice as sd
 
 from vosk_core.audio_processor import AudioProcessor
-from vosk_wrapper_1000.audio_recorder import AudioRecorder
 from vosk_core.model_manager import ModelManager
+from vosk_wrapper_1000.audio_recorder import AudioRecorder
 
 
 def test_sample_rate_flow():

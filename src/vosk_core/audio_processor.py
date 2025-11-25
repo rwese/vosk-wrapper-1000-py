@@ -84,17 +84,26 @@ class AudioProcessor:
     def normalize_audio_chunk(self, audio_data: np.ndarray) -> np.ndarray:
         """Normalize audio to target RMS level.
 
+        This method applies consistent normalization to bring all audio to the same
+        target level regardless of input volume. It uses a two-stage approach:
+        1. Calculate the required gain based on current RMS
+        2. Apply the gain to reach the target RMS level
+
         Args:
             audio_data: Audio data as int16 numpy array
 
         Returns:
             Normalized audio as int16 numpy array
         """
-        if len(audio_data) == 0:
+        # Return unchanged audio if normalization is disabled
+        if not self.normalize_audio or len(audio_data) == 0:
             return audio_data
 
         # Convert to float (normalize to [-1.0, 1.0])
         audio_float = audio_data.astype(np.float32) / 32768.0
+
+        # Remove DC offset to avoid bias in RMS calculation
+        audio_float = audio_float - np.mean(audio_float)
 
         # Calculate current RMS
         current_rms = np.sqrt(np.mean(audio_float**2))
@@ -104,10 +113,13 @@ class AudioProcessor:
             return audio_data
 
         # Calculate gain to reach target level
+        # This ensures all audio reaches the same target RMS regardless of input volume
         gain = self.normalization_target_level / current_rms
 
-        # Limit gain to prevent excessive amplification (max 10x)
-        gain = min(gain, 10.0)
+        # Limit gain to prevent excessive amplification of very quiet audio
+        # Max gain of 50x (34dB) should be sufficient for most use cases while preventing extreme amplification
+        max_gain = 50.0
+        gain = min(gain, max_gain)
 
         # Apply gain
         normalized = audio_float * gain

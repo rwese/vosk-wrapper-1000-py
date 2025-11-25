@@ -24,9 +24,10 @@ from textual.widgets import (
 )
 
 from vosk_core.audio_processor import AudioProcessor
-from .device_manager import DeviceManager
 from vosk_core.model_manager import ModelManager
 from vosk_core.xdg_paths import XDGPaths
+
+from .device_manager import DeviceManager
 
 
 class AudioMonitor(Static):

@@ -23,12 +23,10 @@ Exit codes:
   101 - Terminate application immediately
 """
 
-import json
 import os
 import subprocess
 import sys
 from datetime import datetime
-from typing import Any, Dict
 
 
 class AdvancedPersistentNotifier:
@@ -42,7 +40,7 @@ class AdvancedPersistentNotifier:
 
         # Status tracking
         self.status_file = os.path.expanduser(
-            "~/.cache/vosk-wrapper-1000/advanced_notification_status.json"
+            "~/.cache/vosk-wrapper-1000/advanced_notification_status"
         )
 
         # Display options
@@ -53,35 +51,32 @@ class AdvancedPersistentNotifier:
     def show_recording_started(self) -> None:
         """Show detailed persistent notification that recording has started"""
         try:
-            start_time = datetime.now()
-            timestamp = start_time.isoformat()
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            message = f"Recording active since {timestamp}"
 
-            # Initialize status data
-            status_data = {
-                "status": "active",
-                "start_time": timestamp,
-                "word_count": 0,
-                "last_update": timestamp,
-                "session_id": f"session_{int(start_time.timestamp())}",
-            }
-
-            # Create initial notification
-            title = "🎤 Recording Active"
-            message = f"Started at {start_time.strftime('%H:%M:%S')}"
-
-            if self.show_duration:
-                message += "\nDuration: 00:00:00"
-
-            if self.show_word_count:
-                message += "\nWords: 0"
-
-            cmd = self._build_notify_command(title, message, persistent=True)
+            # Create/update persistent notification
+            cmd = [
+                "notify-send",
+                "--app-name",
+                self.app_name,
+                "--icon",
+                self.icon,
+                "--urgency",
+                "normal",
+                "--transient",  # Don't show in notification center
+                "--expire-time",
+                "1",  # Never expire (persistent)
+                "--hint",
+                "string:x-canonical-private-synchronous:vosk-advanced",
+                "🎤 Recording Active",
+                message,
+            ]
 
             subprocess.run(cmd, check=True, capture_output=True, text=True)
             print("✓ Advanced persistent notification created", file=sys.stderr)
 
-            # Save status
-            self._save_status(status_data)
+            # Save notification state
+            self._save_status("active", timestamp)
 
         except subprocess.CalledProcessError as e:
             print(f"✗ Failed to create notification: {e}", file=sys.stderr)
@@ -90,46 +85,13 @@ class AdvancedPersistentNotifier:
                 "✗ notify-send not found. Install with: sudo apt install libnotify-bin",
                 file=sys.stderr,
             )
-        except Exception as e:
-            print(f"✗ Unexpected error: {e}", file=sys.stderr)
 
-    def _build_notify_command(
-        self, title: str, message: str, persistent: bool = False
-    ) -> list:
-        """Build notify-send command with appropriate options"""
-        cmd = [
-            "notify-send",
-            "--app-name",
-            self.app_name,
-            "--icon",
-            self.icon,
-            "--urgency",
-            "normal",
-            "--transient",  # Don't show in notification center
-        ]
-
-        if persistent:
-            # Never expire for persistent notifications
-            cmd.extend(["--expire-time", "0"])
-            cmd.extend(
-                ["--hint", "string:x-canonical-private-synchronous:vosk-advanced"]
-            )
-        else:
-            # Auto-dismiss after 3 seconds for updates
-            cmd.extend(["--expire-time", "3000"])
-            cmd.extend(
-                ["--hint", "string:x-canonical-private-synchronous:vosk-advanced"]
-            )
-
-        cmd.extend([title, message])
-        return cmd
-
-    def _save_status(self, status_data: Dict[str, Any]) -> None:
-        """Save notification status to JSON file"""
+    def _save_status(self, status: str, timestamp: str) -> None:
+        """Save notification status to file"""
         try:
             os.makedirs(os.path.dirname(self.status_file), exist_ok=True)
             with open(self.status_file, "w") as f:
-                json.dump(status_data, f, indent=2)
+                f.write(f"{status}\n{timestamp}\n")
         except Exception as e:
             print(f"Warning: Could not save status: {e}", file=sys.stderr)
 

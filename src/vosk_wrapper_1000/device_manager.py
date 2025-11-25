@@ -59,6 +59,10 @@ class DeviceManager:
             for device in self.devices_cache:
                 if device["id"] == device_id:
                     return device
+                # Also try partial name match for devices with spaces
+                if device_arg and device_arg.lower() in device["name"].lower():
+                    return device
+                    return device
 
         # If not found by ID, try by name
         if self.devices_cache:
@@ -83,6 +87,40 @@ class DeviceManager:
     ) -> Tuple[bool, str]:
         """Validate device compatibility with model sample rate."""
         return validate_device_compatibility(device_id, model_sample_rate)
+
+    def test_device(self, device_id: int) -> Tuple[bool, str]:
+        """Test if a device is working by creating a test stream.
+
+        Args:
+            device_id: Device ID to test
+
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        try:
+            # Get device info to use its native sample rate
+            devices = self.refresh_devices()
+            if device_id < len(devices):
+                device_info = devices[device_id]
+                native_rate = int(device_info.get("default_samplerate", 48000))
+            else:
+                native_rate = 48000  # Fallback
+
+            # Create a test stream to validate device functionality
+            test_stream = sd.InputStream(
+                device=device_id,
+                channels=1,
+                dtype="int16",
+                samplerate=native_rate,  # Use device's native rate for testing
+                blocksize=1024,
+            )
+            test_stream.close()
+            return (
+                True,
+                f"Device {device_id} test successful (native rate: {native_rate} Hz)",
+            )
+        except Exception as e:
+            return False, f"Device {device_id} test failed: {e}"
 
     def print_device_list(self):
         """Print formatted list of available devices."""
