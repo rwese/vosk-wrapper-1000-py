@@ -33,7 +33,7 @@ import time
 import urllib.error
 import urllib.request
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 
 class WebhookNotifier:

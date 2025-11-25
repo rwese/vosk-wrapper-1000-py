@@ -13,9 +13,9 @@ from uuid import uuid4
 
 # Import local modules
 from vosk_core.audio_processor import AudioProcessor
-from vosk_core.audio_recorder import AudioRecorder
-from vosk_core.audio_system import print_audio_system_info
-from vosk_core.device_manager import DeviceManager
+from .audio_recorder import AudioRecorder
+from .audio_system import print_audio_system_info
+from .device_manager import DeviceManager
 from vosk_core.model_manager import ModelManager
 from vosk_core.xdg_paths import get_hooks_dir
 

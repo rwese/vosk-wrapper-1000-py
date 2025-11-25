@@ -24,9 +24,9 @@ Exit codes:
   0 - Continue processing normally
 """
 
+import os
 import subprocess
 import sys
-import os
 from datetime import datetime
 
 

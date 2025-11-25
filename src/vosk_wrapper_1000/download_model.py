@@ -7,7 +7,7 @@ import zipfile
 import requests
 from tqdm import tqdm
 
-from .xdg_paths import get_default_model_path, get_models_dir
+from vosk_core.xdg_paths import get_default_model_path, get_models_dir
 
 MODEL_LIST_URL = "https://alphacephei.com/vosk/models/model-list.json"
 DEFAULT_OUTPUT_DIR = str(get_models_dir())

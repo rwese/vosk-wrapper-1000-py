@@ -37,7 +37,7 @@ import time
 import urllib.error
 import urllib.request
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 
 class NotificationConfig:
@@ -140,7 +140,7 @@ class AdvancedNotifier:
             ]
 
             subprocess.run(cmd, check=True, capture_output=True, timeout=1)
-            print(f"✓ Desktop notification sent", file=sys.stderr)
+            print("✓ Desktop notification sent", file=sys.stderr)
 
         except subprocess.TimeoutExpired:
             print("✗ Desktop notification timeout", file=sys.stderr)
@@ -200,7 +200,7 @@ class AdvancedNotifier:
                 "blocks": [
                     {
                         "type": "section",
-                        "text": {"type": "mrkdwn", "text": f"*Speech Detected*"},
+                        "text": {"type": "mrkdwn", "text": "*Speech Detected*"},
                     },
                     {
                         "type": "section",

@@ -10,9 +10,9 @@ __author__ = "Vosk Simple Contributors"
 
 from vosk_core.audio_backend import AudioBackend
 from vosk_core.audio_processor import AudioProcessor
-from vosk_core.audio_recorder import AudioRecorder
-from vosk_core.device_manager import DeviceManager
-from vosk_core.download_model import main as download_model_main
+from .audio_recorder import AudioRecorder
+from .device_manager import DeviceManager
+from .download_model import main as download_model_main
 from vosk_core.model_manager import ModelManager
 from vosk_core.xdg_paths import get_default_model_path, get_models_dir
 
