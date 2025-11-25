@@ -1,6 +1,7 @@
 """Main daemon service for vosk-wrapper-1000."""
 
 import argparse
+import asyncio
 import json
 import logging
 import os
@@ -13,13 +14,13 @@ from uuid import uuid4
 
 # Import local modules
 from vosk_core.audio_processor import AudioProcessor
-from .audio_recorder import AudioRecorder
-from .audio_system import print_audio_system_info
-from .device_manager import DeviceManager
 from vosk_core.model_manager import ModelManager
 from vosk_core.xdg_paths import get_hooks_dir
 
+from .audio_recorder import AudioRecorder
+from .audio_system import print_audio_system_info
 from .config_manager import ConfigManager
+from .device_manager import DeviceManager
 from .hook_manager import HookManager
 from .ipc_server import IPCServer
 from .pid_manager import remove_pid, send_signal_to_instance, write_pid

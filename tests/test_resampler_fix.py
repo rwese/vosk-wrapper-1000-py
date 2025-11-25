@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 import numpy as np
 import soxr
 
-from vosk_wrapper_1000.audio_processor import AudioProcessor
+from vosk_core.audio_processor import AudioProcessor
 from vosk_wrapper_1000.audio_recorder import AudioRecorder
 
 

@@ -6,9 +6,10 @@ YAML configuration files and environment variable overrides.
 """
 
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import yaml
 
@@ -190,6 +191,7 @@ class ConfigManager:
         """
         if self._config is None:
             self._config = self._load_config()
+            print(f"✅ Configuration loaded from: {self.config_file}", file=sys.stderr)
         return self._config
 
     def _load_config(self) -> Config:
@@ -201,6 +203,10 @@ class ConfigManager:
             try:
                 with open(self.config_file) as f:
                     config_data = yaml.safe_load(f) or {}
+                    print(
+                        f"✅ Configuration loaded from: {self.config_file}",
+                        file=sys.stderr,
+                    )
             except (OSError, yaml.YAMLError) as e:
                 print(f"Warning: Failed to load config file {self.config_file}: {e}")
 
@@ -231,16 +237,21 @@ class ConfigManager:
         # Audio overrides
         if (device := os.getenv("VOSK_AUDIO_DEVICE")) is not None:
             config.audio.device = device
+            print(f"🔧 Environment override: VOSK_AUDIO_DEVICE={device}")
         if (blocksize := os.getenv("VOSK_AUDIO_BLOCKSIZE")) is not None:
             config.audio.blocksize = int(blocksize)
+            print(f"🔧 Environment override: VOSK_AUDIO_BLOCKSIZE={blocksize}")
         if (samplerate := os.getenv("VOSK_AUDIO_SAMPLERATE")) is not None:
             config.audio.samplerate = int(samplerate)
+            print(f"🔧 Environment override: VOSK_AUDIO_SAMPLERATE={samplerate}")
 
         # Model overrides
         if (model_path := os.getenv("VOSK_MODEL_PATH")) is not None:
             config.model.path = model_path
+            print(f"🔧 Environment override: VOSK_MODEL_PATH={model_path}")
         if (model_name := os.getenv("VOSK_MODEL_NAME")) is not None:
             config.model.default_name = model_name
+            print(f"🔧 Environment override: VOSK_MODEL_NAME={model_name}")
 
         # Recognition overrides
         if (words := os.getenv("VOSK_WORDS")) is not None:

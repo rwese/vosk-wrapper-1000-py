@@ -4,6 +4,7 @@
 import sys
 import tempfile
 import time
+import wave
 from pathlib import Path
 
 # Add src to path
@@ -12,9 +13,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 import numpy as np
 import sounddevice as sd
 
-from vosk_wrapper_1000.audio_processor import AudioProcessor
+from vosk_core.audio_processor import AudioProcessor
 from vosk_wrapper_1000.audio_recorder import AudioRecorder
-from vosk_wrapper_1000.model_manager import ModelManager
+from vosk_core.model_manager import ModelManager
 
 
 def test_sample_rate_flow():
@@ -109,7 +110,6 @@ def test_actual_daemon_recording():
         device_rate=device_samplerate,
         model_rate=model_sample_rate,
         noise_filter_enabled=False,
-        channels=1,
     )
 
     # Create audio recorder
@@ -193,6 +193,6 @@ if __name__ == "__main__":
     response = input("\nTest actual microphone recording? (y/N): ").strip().lower()
     if response == "y":
         result_file = test_actual_daemon_recording()
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Test complete! File saved to: {result_file}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")

@@ -49,19 +49,17 @@ def test_daemon_style_capture(duration=3.0):
     processed_wav.setframerate(model_sample_rate)
 
     # Import audio processor
-    from vosk_wrapper_1000.audio_processor import AudioProcessor
+    from vosk_core.audio_processor import AudioProcessor
 
     audio_processor = AudioProcessor(
         device_rate=device_samplerate,
         model_rate=model_sample_rate,
         noise_filter_enabled=False,  # Disable for testing
-        channels=1,  # Explicitly mono
     )
 
     print("\nAudioProcessor config:")
     print(f"  device_rate: {audio_processor.device_rate}")
     print(f"  model_rate: {audio_processor.model_rate}")
-    print(f"  channels: {audio_processor.channels}")
     print(
         f"  Will resample: {audio_processor.device_rate != audio_processor.model_rate}"
     )
@@ -132,9 +130,9 @@ def test_daemon_style_capture(duration=3.0):
     print(f"  Processed (to Vosk):   {processed_file}")
 
     # Analyze the files
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Analysis:")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     with wave.open(str(raw_file), "rb") as wf:
         print("\nRaw capture:")
