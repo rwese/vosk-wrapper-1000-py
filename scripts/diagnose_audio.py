@@ -3,8 +3,8 @@
 Diagnose audio recording issues in vosk-wrapper-1000.
 """
 
-import sys
 import os
+import sys
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
@@ -92,7 +92,7 @@ def test_device_access():
         device_info = device_manager.get_device_info(device_id)
 
         if device_info:
-            print(f"Device info:")
+            print("Device info:")
             print(f"  Name: {device_info['name']}")
             print(f"  ID: {device_info['id']}")
             print(f"  Channels: {device_info['max_input_channels']}")
@@ -258,7 +258,7 @@ def main():
             "\nPlease check the errors above and fix them before using vosk-wrapper-1000"
         )
 
-    print(f"\nYour current silence threshold: 350.0")
+    print("\nYour current silence threshold: 350.0")
     print("This is quite high - try lowering it if you have quiet audio input")
 
 
