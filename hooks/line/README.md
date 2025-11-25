@@ -282,11 +282,19 @@ Logs are written to stderr with timestamps:
 2025-11-23 10:30:45 - __main__ - INFO - Executing action: breaker (exit code 100)
 ```
 
-Adjust log level in the script:
+**Important:** Do NOT call `logging.basicConfig()` in your hooks! The main application configures logging, and `basicConfig()` only works the first time it's called. Hooks that call `basicConfig()` will prevent the application's log level settings from working.
+
+Instead, just get a logger and use it:
 ```python
-logging.basicConfig(level=logging.DEBUG)  # More verbose
-logging.basicConfig(level=logging.WARNING)  # Less verbose
+import logging
+logger = logging.getLogger(__name__)
+
+# Then use the logger normally:
+logger.debug("Debug message")
+logger.info("Info message")
 ```
+
+The log level is controlled by the main application's configuration file (`config/default.yaml`).
 
 ## Testing
 

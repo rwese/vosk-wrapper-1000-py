@@ -26,3 +26,16 @@ repos:
       - id: mypy
         additional_dependencies: [types-PyYAML>=6.0.0, types-requests>=2.31.0]
         args: [--ignore-missing-imports, --show-error-codes]
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.42.0
+    hooks:
+      - id: markdownlint

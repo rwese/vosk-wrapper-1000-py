@@ -1,0 +1,37 @@
+[Unit]
+Description=Vosk Wrapper 1000 Speech Recognition Daemon (default instance)
+Documentation=https://github.com/rwese/vosk-wrapper-1000-py
+After=sound.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/vosk-wrapper-1000 daemon --name default --foreground
+Restart=on-failure
+RestartSec=5s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/share/vosk-wrapper-1000 %h/.config/vosk-wrapper-1000 %h/.cache/vosk-wrapper-1000
+
+# Runtime directory for IPC socket (creates /run/user/UID/vosk-wrapper-1000/)
+RuntimeDirectory=vosk-wrapper-1000
+RuntimeDirectoryMode=0755
+
+# Resource limits
+# Note: Large models (gigaspeech) can use 6-10GB RAM
+# Small models typically use 1-2GB RAM
+# Adjust MemoryMax based on your model and system RAM
+# Comment out MemoryMax to disable the limit if you have OOM issues
+#MemoryMax=12G
+CPUQuota=150%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vosk-wrapper-1000-default
+
+[Install]
+WantedBy=default.target

@@ -1,10 +1,13 @@
 import json
+import logging
 import os
 import subprocess
 import sys
 import threading
 import time
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 class HookManager:
@@ -42,7 +45,7 @@ class HookManager:
             callback (callable): Optional callback to call with the return code.
         """
         try:
-            print(f"  Executing hook: {hook}", file=sys.stderr)
+            logger.debug(f"  Executing hook: {hook}")
 
             # Check if this is a JSON hook (contains "_json." in filename)
             hook_name = os.path.basename(hook)
@@ -61,6 +64,11 @@ class HookManager:
             else:
                 json_payload = payload
 
+            # Debug logging
+            logger.debug(
+                f"  Hook payload type: {type(json_payload).__name__}, length: {len(json_payload) if json_payload else 0}"
+            )
+
             process = subprocess.Popen(
                 cmd,
                 stdin=subprocess.PIPE if json_payload is not None else None,
@@ -73,25 +81,19 @@ class HookManager:
             returncode = process.returncode
 
             if returncode == 100:
-                print(
-                    f"  Hook '{hook}' requested STOP LISTENING (100).",
-                    file=sys.stderr,
-                )
+                logger.info(f"  Hook '{hook}' requested STOP LISTENING (100).")
             elif returncode == 101:
-                print(f"  Hook '{hook}' requested TERMINATE (101).", file=sys.stderr)
+                logger.info(f"  Hook '{hook}' requested TERMINATE (101).")
             elif returncode == 102:
-                print(f"  Hook '{hook}' requested ABORT (102).", file=sys.stderr)
+                logger.info(f"  Hook '{hook}' requested ABORT (102).")
             elif returncode != 0:
-                print(
-                    f"  Hook '{hook}' exited with code {returncode}.",
-                    file=sys.stderr,
-                )
+                logger.warning(f"  Hook '{hook}' exited with code {returncode}.")
 
             if callback:
                 callback(returncode)
 
         except Exception as e:
-            print(f"  Error executing hook '{hook}': {e}", file=sys.stderr)
+            logger.error(f"  Error executing hook '{hook}': {e}")
         finally:
             with self._lock:
                 if threading.current_thread() in self._running_hooks:
@@ -123,10 +125,7 @@ class HookManager:
         if not hooks:
             return 0
 
-        print(
-            f"Running hooks for event '{event_name}' (async={async_mode})...",
-            file=sys.stderr,
-        )
+        logger.debug(f"Running hooks for event '{event_name}' (async={async_mode})...")
 
         if async_mode:
             # Run hooks asynchronously
@@ -149,7 +148,7 @@ class HookManager:
                     thread.start()
 
                 except Exception as e:
-                    print(f"  Error starting hook '{hook}': {e}", file=sys.stderr)
+                    logger.error(f"  Error starting hook '{hook}': {e}")
 
             return 0  # In async mode, always return 0
         else:
@@ -158,7 +157,7 @@ class HookManager:
 
             for hook in hooks:
                 try:
-                    print(f"  Executing hook: {hook}", file=sys.stderr)
+                    logger.debug(f"  Executing hook: {hook}")
                     cmd = [hook]
                     if args:
                         cmd.extend(args)
@@ -191,30 +190,21 @@ class HookManager:
                     _, _ = process.communicate(input=json_payload)
 
                     if process.returncode == 100:
-                        print(
-                            f"  Hook '{hook}' requested STOP LISTENING (100).",
-                            file=sys.stderr,
-                        )
+                        logger.info(f"  Hook '{hook}' requested STOP LISTENING (100).")
                         final_action = 100
                     elif process.returncode == 101:
-                        print(
-                            f"  Hook '{hook}' requested TERMINATE (101).",
-                            file=sys.stderr,
-                        )
+                        logger.info(f"  Hook '{hook}' requested TERMINATE (101).")
                         return 101  # Immediate exit priority
                     elif process.returncode == 102:
-                        print(
-                            f"  Hook '{hook}' requested ABORT (102).", file=sys.stderr
-                        )
+                        logger.info(f"  Hook '{hook}' requested ABORT (102).")
                         return 102  # Immediate abort priority
                     elif process.returncode != 0:
-                        print(
-                            f"  Hook '{hook}' exited with code {process.returncode}.",
-                            file=sys.stderr,
+                        logger.warning(
+                            f"  Hook '{hook}' exited with code {process.returncode}."
                         )
 
                 except Exception as e:
-                    print(f"  Error executing hook '{hook}': {e}", file=sys.stderr)
+                    logger.error(f"  Error executing hook '{hook}': {e}")
 
             return final_action
 

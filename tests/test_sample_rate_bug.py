@@ -9,62 +9,64 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from vosk_wrapper_1000.audio_recorder import AudioRecorder
-from vosk_wrapper_1000.audio_processor import AudioProcessor
-from vosk_wrapper_1000.model_manager import ModelManager
 import numpy as np
 import sounddevice as sd
+
+from vosk_wrapper_1000.audio_processor import AudioProcessor
+from vosk_wrapper_1000.audio_recorder import AudioRecorder
+from vosk_wrapper_1000.model_manager import ModelManager
 
 
 def test_sample_rate_flow():
     """Test the exact flow that the daemon uses for audio recording."""
-    print("="*60)
+    print("=" * 60)
     print("Testing Daemon Audio Recording Flow")
-    print("="*60)
+    print("=" * 60)
 
     # Simulate daemon's initialization (lines 294-296)
     temp_file = tempfile.mktemp(suffix=".wav")
-    print(f"\n1. Creating AudioRecorder with placeholder rate...")
+    print("\n1. Creating AudioRecorder with placeholder rate...")
     audio_recorder = AudioRecorder(temp_file, 16000)  # Placeholder
     print(f"   AudioRecorder.sample_rate = {audio_recorder.sample_rate} Hz")
 
     # Simulate getting model sample rate (line 350)
-    print(f"\n2. Getting model sample rate...")
+    print("\n2. Getting model sample rate...")
     mm = ModelManager()
     model_path = mm.resolve_model_path("vosk-model-en-gb-0.1")
     model_sample_rate = mm.get_model_sample_rate(str(model_path))
     print(f"   model_sample_rate = {model_sample_rate} Hz")
 
     # Simulate the update (line 359)
-    print(f"\n3. Updating AudioRecorder.sample_rate...")
+    print("\n3. Updating AudioRecorder.sample_rate...")
     audio_recorder.sample_rate = model_sample_rate
     print(f"   AudioRecorder.sample_rate = {audio_recorder.sample_rate} Hz")
 
     # Start recording (line 360)
-    print(f"\n4. Starting recording...")
+    print("\n4. Starting recording...")
     if not audio_recorder.start_recording():
         print("   ERROR: Failed to start recording!")
         return
-    print(f"   Recording started successfully")
+    print("   Recording started successfully")
 
     # Check what was actually written to the WAV header
     import wave
-    print(f"\n5. Checking WAV file header...")
-    print(f"   (Note: File is still open for writing)")
+
+    print("\n5. Checking WAV file header...")
+    print("   (Note: File is still open for writing)")
 
     # Write some dummy audio data
-    print(f"\n6. Writing test audio data...")
+    print("\n6. Writing test audio data...")
     test_audio = np.random.randint(-1000, 1000, size=8000, dtype=np.int16)
     audio_recorder.write_audio(test_audio)
     print(f"   Wrote {len(test_audio)} samples")
 
     # Stop recording
-    print(f"\n7. Stopping recording...")
+    print("\n7. Stopping recording...")
     audio_recorder.stop_recording()
-    print(f"   Recording stopped")
+    print("   Recording stopped")
 
     # Analyze the result
-    print(f"\n8. Analyzing result...")
+    print("\n8. Analyzing result...")
     with wave.open(temp_file, "rb") as wf:
         print(f"   WAV Header Sample Rate: {wf.getframerate()} Hz")
         print(f"   Expected Sample Rate:   {model_sample_rate} Hz")
@@ -73,25 +75,25 @@ def test_sample_rate_flow():
         print(f"   Frames:                 {wf.getnframes()}")
 
         if wf.getframerate() == model_sample_rate:
-            print(f"\n   ✓ PASS: Sample rate is correct!")
+            print("\n   ✓ PASS: Sample rate is correct!")
         else:
-            print(f"\n   ✗ FAIL: Sample rate mismatch!")
+            print("\n   ✗ FAIL: Sample rate mismatch!")
             print(f"          Expected {model_sample_rate} Hz")
             print(f"          Got {wf.getframerate()} Hz")
 
     # Cleanup
     Path(temp_file).unlink()
-    print(f"\n9. Cleanup complete")
+    print("\n9. Cleanup complete")
 
 
 def test_actual_daemon_recording():
     """Test recording with actual microphone input (like daemon does)."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Testing Actual Microphone Recording (3 seconds)")
-    print("="*60)
+    print("=" * 60)
 
     # Get device and model sample rates
-    device_info = sd.query_devices(kind='input')
+    device_info = sd.query_devices(kind="input")
     device_samplerate = int(device_info["default_samplerate"])
 
     mm = ModelManager()
@@ -122,7 +124,7 @@ def test_actual_daemon_recording():
         return
 
     print(f"AudioRecorder.sample_rate after start:  {audio_recorder.sample_rate} Hz")
-    print(f"\nRecording from microphone for 3 seconds...")
+    print("\nRecording from microphone for 3 seconds...")
     print(f"(The sample rate should be {model_sample_rate} Hz)")
 
     # Record audio
@@ -153,12 +155,12 @@ def test_actual_daemon_recording():
     audio_recorder.stop_recording()
     audio_processor.cleanup()
 
-    print(f"\nRecording complete!")
+    print("\nRecording complete!")
     print(f"Recorded {len(recorded_chunks)} chunks")
     print(f"Total processed frames: {sum(recorded_chunks)}")
 
     # Analyze result
-    print(f"\nAnalyzing WAV file...")
+    print("\nAnalyzing WAV file...")
     with wave.open(temp_file, "rb") as wf:
         header_rate = wf.getframerate()
         frames = wf.getnframes()
@@ -170,10 +172,10 @@ def test_actual_daemon_recording():
         print(f"  Duration:           {duration:.2f} seconds")
 
         if header_rate == model_sample_rate:
-            print(f"\n  ✓ Sample rate is CORRECT!")
+            print("\n  ✓ Sample rate is CORRECT!")
         else:
-            print(f"\n  ✗ Sample rate is WRONG!")
-            print(f"    This is the bug causing 'too slow' playback!")
+            print("\n  ✗ Sample rate is WRONG!")
+            print("    This is the bug causing 'too slow' playback!")
 
     print(f"\nSaved to: {temp_file}")
     print(f"You can listen with: play {temp_file}")
@@ -187,9 +189,9 @@ if __name__ == "__main__":
     test_sample_rate_flow()
 
     # Test 2: Actual recording (requires user interaction)
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     response = input("\nTest actual microphone recording? (y/N): ").strip().lower()
-    if response == 'y':
+    if response == "y":
         result_file = test_actual_daemon_recording()
         print(f"\n{'='*60}")
         print(f"Test complete! File saved to: {result_file}")

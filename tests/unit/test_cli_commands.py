@@ -5,7 +5,7 @@ Integration tests for CLI command functions.
 import argparse
 import tempfile
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from vosk_wrapper_1000.main import cmd_list, cmd_start, cmd_stop, cmd_terminate
 

@@ -13,8 +13,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import vosk
-from vosk_core.model_manager import ModelManager
+
 from vosk_core.audio_processor import AudioProcessor
+from vosk_core.model_manager import ModelManager
 
 
 def transcribe_file(
@@ -63,8 +64,9 @@ def transcribe_file(
     # Read and transcribe the audio file
     print(f"Transcribing: {audio_file}", file=sys.stderr)
 
-    import wave
     import json
+    import wave
+
     import numpy as np
 
     # Open the audio file
@@ -84,7 +86,7 @@ def transcribe_file(
 
     if sampwidth != 2:
         print(
-            f"Error: Only 16-bit (2 byte) WAV files are supported",
+            "Error: Only 16-bit (2 byte) WAV files are supported",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -148,7 +150,7 @@ def transcribe_file(
     wf.close()
 
     transcription = transcription.strip()
-    print(f"Transcription complete", file=sys.stderr)
+    print("Transcription complete", file=sys.stderr)
 
     # Output the result
     if output_file:

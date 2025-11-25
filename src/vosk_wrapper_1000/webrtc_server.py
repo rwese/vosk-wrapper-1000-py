@@ -8,15 +8,13 @@ audio processing pipeline.
 """
 
 import asyncio
-import json
 import logging
 import uuid
 from typing import Any, Dict, Optional
 
 import numpy as np
 from aiohttp import web
-from aiortc import RTCPeerConnection, RTCSessionDescription, MediaStreamTrack
-from aiortc.contrib.media import MediaRecorder
+from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 from av import AudioFrame
 
 logger = logging.getLogger(__name__)
@@ -80,7 +78,7 @@ class AudioSink:
                                 audio_bytes,
                                 frame.sample_rate,
                                 len(frame.layout.channels),
-                                self.peer_id
+                                self.peer_id,
                             )
 
                 except Exception as e:
@@ -132,10 +130,7 @@ class WebRTCPeer:
         offer = await self.pc.createOffer()
         await self.pc.setLocalDescription(offer)
 
-        return {
-            "type": offer.type,
-            "sdp": offer.sdp
-        }
+        return {"type": offer.type, "sdp": offer.sdp}
 
     async def set_answer(self, answer_sdp: str):
         """Set remote answer.
@@ -191,18 +186,13 @@ class WebRTCServer:
 
             logger.info(f"Created offer for peer {peer_id}")
 
-            return web.json_response({
-                "peer_id": peer_id,
-                "sdp": offer["sdp"],
-                "type": offer["type"]
-            })
+            return web.json_response(
+                {"peer_id": peer_id, "sdp": offer["sdp"], "type": offer["type"]}
+            )
 
         except Exception as e:
             logger.error(f"Error handling offer: {e}")
-            return web.json_response(
-                {"error": str(e)},
-                status=500
-            )
+            return web.json_response({"error": str(e)}, status=500)
 
     async def _handle_answer(self, request: web.Request) -> web.Response:
         """Handle WebRTC answer from client.
@@ -215,20 +205,14 @@ class WebRTCServer:
             # Get peer connection
             peer = self.peers.get(peer_id)
             if not peer:
-                return web.json_response(
-                    {"error": "Peer not found"},
-                    status=404
-                )
+                return web.json_response({"error": "Peer not found"}, status=404)
 
             # Parse answer
             data = await request.json()
             answer_sdp = data.get("sdp")
 
             if not answer_sdp:
-                return web.json_response(
-                    {"error": "Missing SDP in answer"},
-                    status=400
-                )
+                return web.json_response({"error": "Missing SDP in answer"}, status=400)
 
             # Set answer
             await peer.set_answer(answer_sdp)
@@ -239,10 +223,7 @@ class WebRTCServer:
 
         except Exception as e:
             logger.error(f"Error handling answer: {e}")
-            return web.json_response(
-                {"error": str(e)},
-                status=500
-            )
+            return web.json_response({"error": str(e)}, status=500)
 
     async def _handle_delete_peer(self, request: web.Request) -> web.Response:
         """Handle peer disconnection request."""
@@ -259,18 +240,17 @@ class WebRTCServer:
 
         except Exception as e:
             logger.error(f"Error deleting peer: {e}")
-            return web.json_response(
-                {"error": str(e)},
-                status=500
-            )
+            return web.json_response({"error": str(e)}, status=500)
 
     async def _handle_status(self, request: web.Request) -> web.Response:
         """Handle status request."""
-        return web.json_response({
-            "running": self.running,
-            "active_connections": len(self.peers),
-            "peers": list(self.peers.keys())
-        })
+        return web.json_response(
+            {
+                "running": self.running,
+                "active_connections": len(self.peers),
+                "peers": list(self.peers.keys()),
+            }
+        )
 
     async def _start_server(self):
         """Start the aiohttp server."""

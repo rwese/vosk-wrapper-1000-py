@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Diagnostic script to test sample rate and channel configuration issues."""
 
-import sys
 import wave
 from pathlib import Path
 
@@ -27,7 +26,9 @@ def analyze_wav_file(filepath):
             nframes = wf.getnframes()
             duration = nframes / framerate
 
-            print(f"  Channels:      {channels} ({'mono' if channels == 1 else 'stereo' if channels == 2 else 'multi-channel'})")
+            print(
+                f"  Channels:      {channels} ({'mono' if channels == 1 else 'stereo' if channels == 2 else 'multi-channel'})"
+            )
             print(f"  Sample width:  {sampwidth} bytes ({sampwidth * 8}-bit)")
             print(f"  Sample rate:   {framerate} Hz")
             print(f"  Frames:        {nframes:,}")
@@ -39,7 +40,7 @@ def analyze_wav_file(filepath):
             actual_size = filepath.stat().st_size
 
             if abs(expected_size - actual_size) > 100:  # Allow small header variations
-                print(f"  ⚠️  WARNING: File size mismatch!")
+                print("  ⚠️  WARNING: File size mismatch!")
                 print(f"      Expected: {expected_size:,} bytes")
                 print(f"      Actual:   {actual_size:,} bytes")
                 print(f"      Diff:     {actual_size - expected_size:,} bytes")
@@ -49,30 +50,36 @@ def analyze_wav_file(filepath):
             audio_bytes = wf.readframes(nframes)
             audio_data = np.frombuffer(audio_bytes, dtype=np.int16)
 
-            print(f"\n  Audio data analysis:")
+            print("\n  Audio data analysis:")
             print(f"    Array shape:   {audio_data.shape}")
             print(f"    Array length:  {len(audio_data):,} samples")
             print(f"    Min value:     {audio_data.min()}")
             print(f"    Max value:     {audio_data.max()}")
             print(f"    Mean:          {audio_data.mean():.2f}")
-            print(f"    RMS:           {np.sqrt(np.mean(audio_data.astype(np.float32) ** 2)):.2f}")
+            print(
+                f"    RMS:           {np.sqrt(np.mean(audio_data.astype(np.float32) ** 2)):.2f}"
+            )
 
             # Check for silence
             rms = np.sqrt(np.mean(audio_data.astype(np.float32) ** 2))
             if rms < 100:
-                print(f"    ⚠️  WARNING: Audio appears very quiet or silent (RMS < 100)")
+                print("    ⚠️  WARNING: Audio appears very quiet or silent (RMS < 100)")
 
             # If stereo, analyze channels separately
             if channels == 2:
                 left = audio_data[0::2]
                 right = audio_data[1::2]
-                print(f"\n  Stereo channel analysis:")
-                print(f"    Left channel RMS:  {np.sqrt(np.mean(left.astype(np.float32) ** 2)):.2f}")
-                print(f"    Right channel RMS: {np.sqrt(np.mean(right.astype(np.float32) ** 2)):.2f}")
+                print("\n  Stereo channel analysis:")
+                print(
+                    f"    Left channel RMS:  {np.sqrt(np.mean(left.astype(np.float32) ** 2)):.2f}"
+                )
+                print(
+                    f"    Right channel RMS: {np.sqrt(np.mean(right.astype(np.float32) ** 2)):.2f}"
+                )
 
                 # Check if channels are identical (common for mono source recorded as stereo)
                 if np.array_equal(left, right):
-                    print(f"    ℹ️  Both channels are identical (mono source)")
+                    print("    ℹ️  Both channels are identical (mono source)")
 
             return {
                 "channels": channels,
@@ -95,15 +102,17 @@ def check_microphone_properties():
 
     try:
         # Get default input device
-        device_info = sd.query_devices(kind='input')
+        device_info = sd.query_devices(kind="input")
 
         print(f"  Device name:           {device_info['name']}")
         print(f"  Max input channels:    {device_info['max_input_channels']}")
         print(f"  Default sample rate:   {device_info['default_samplerate']} Hz")
-        print(f"  Host API:              {sd.query_hostapis(device_info['hostapi'])['name']}")
+        print(
+            f"  Host API:              {sd.query_hostapis(device_info['hostapi'])['name']}"
+        )
 
         # Test if we can open a stream with different configurations
-        print(f"\n  Testing stream configurations:")
+        print("\n  Testing stream configurations:")
 
         configs = [
             (1, 16000, "Mono @ 16kHz"),
@@ -118,7 +127,7 @@ def check_microphone_properties():
                 stream = sd.InputStream(
                     channels=channels,
                     samplerate=samplerate,
-                    dtype='int16',
+                    dtype="int16",
                     blocksize=1024,
                 )
                 stream.close()
@@ -141,21 +150,21 @@ def test_record_short_sample(duration=2.0, channels=1, samplerate=16000):
 
     try:
         print(f"  Recording for {duration} seconds...")
-        print(f"  (Please make some noise during recording)")
+        print("  (Please make some noise during recording)")
 
         # Record audio
         recording = sd.rec(
             int(duration * samplerate),
             samplerate=samplerate,
             channels=channels,
-            dtype='int16',
+            dtype="int16",
         )
         sd.wait()
 
-        print(f"  Recording complete!")
+        print("  Recording complete!")
 
         # Analyze the recording
-        print(f"\n  Recording analysis:")
+        print("\n  Recording analysis:")
         print(f"    Shape:         {recording.shape}")
         print(f"    Samples:       {len(recording):,}")
         print(f"    Min value:     {recording.min()}")
@@ -185,6 +194,7 @@ def test_record_short_sample(duration=2.0, channels=1, samplerate=16000):
     except Exception as e:
         print(f"  ❌ Error recording: {e}")
         import traceback
+
         traceback.print_exc()
         return None
 
@@ -206,7 +216,9 @@ def compare_daemon_vs_transcribe_recordings():
     else:
         print("\n  No daemon recordings found")
         print("  To create one, run:")
-        print("    vosk-wrapper-1000 daemon --record-audio tests/assets/daemon_recording.wav")
+        print(
+            "    vosk-wrapper-1000 daemon --record-audio tests/assets/daemon_recording.wav"
+        )
 
     if transcribe_recordings:
         print("\n📁 Found transcribe-file recordings:")
@@ -216,9 +228,9 @@ def compare_daemon_vs_transcribe_recordings():
 
 def main():
     """Run all diagnostic tests."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("VOSK WRAPPER SAMPLE RATE DIAGNOSTIC TOOL")
-    print("="*60)
+    print("=" * 60)
 
     # Ensure assets directory exists
     ASSETS_DIR.mkdir(exist_ok=True)
@@ -244,14 +256,14 @@ def main():
     print(f"{'='*60}")
 
     response = input("\nWould you like to record test samples? (y/N): ").strip().lower()
-    if response == 'y':
+    if response == "y":
         # Test mono @ 16kHz (typical Vosk config)
         test_record_short_sample(duration=3.0, channels=1, samplerate=16000)
 
         # Test if stereo causes issues
-        if device_info and device_info['max_input_channels'] >= 2:
+        if device_info and device_info["max_input_channels"] >= 2:
             response = input("\nRecord stereo test? (y/N): ").strip().lower()
-            if response == 'y':
+            if response == "y":
                 test_record_short_sample(duration=3.0, channels=2, samplerate=16000)
 
     print(f"\n{'='*60}")

@@ -15,14 +15,15 @@ from uuid import uuid4
 from vosk_core.audio_processor import AudioProcessor
 from vosk_core.audio_recorder import AudioRecorder
 from vosk_core.audio_system import print_audio_system_info
-from .config_manager import ConfigManager
 from vosk_core.device_manager import DeviceManager
+from vosk_core.model_manager import ModelManager
+from vosk_core.xdg_paths import get_hooks_dir
+
+from .config_manager import ConfigManager
 from .hook_manager import HookManager
 from .ipc_server import IPCServer
-from vosk_core.model_manager import ModelManager
 from .pid_manager import remove_pid, send_signal_to_instance, write_pid
 from .signal_manager import SignalManager
-from vosk_core.xdg_paths import get_hooks_dir
 
 try:
     from .webrtc_server import WebRTCServer
@@ -573,9 +574,13 @@ def run_service(args):
                 """Handle audio from WebRTC streams."""
                 try:
                     # Queue audio for processing (will be handled in main loop)
-                    webrtc_audio_queue.put_nowait((audio_bytes, sample_rate, channels, peer_id))
+                    webrtc_audio_queue.put_nowait(
+                        (audio_bytes, sample_rate, channels, peer_id)
+                    )
                 except queue.Full:
-                    logger.warning(f"WebRTC audio queue full for peer {peer_id}, dropping audio")
+                    logger.warning(
+                        f"WebRTC audio queue full for peer {peer_id}, dropping audio"
+                    )
                 except Exception as e:
                     logger.error(f"Error queueing WebRTC audio: {e}")
 
@@ -674,7 +679,12 @@ def run_service(args):
             if webrtc_audio_queue is not None and signal_manager.is_listening():
                 try:
                     while True:
-                        audio_bytes, sample_rate, channels, peer_id = webrtc_audio_queue.get_nowait()
+                        (
+                            audio_bytes,
+                            sample_rate,
+                            channels,
+                            peer_id,
+                        ) = webrtc_audio_queue.get_nowait()
                         # Process WebRTC audio through the audio processor
                         audio_chunks = audio_processor.process_webrtc_audio(
                             audio_bytes, sample_rate, channels
@@ -870,7 +880,6 @@ def run_service(args):
 
                         # Reset recognizer for next utterance
                         rec.Reset()
-                        transcript_buffer = []  # Clear buffer for next utterance
                         continue
 
                     # Debug: Log queue processing
@@ -1188,6 +1197,7 @@ def cmd_stream(args):
     """Stream live transcription (automatically starts/stops daemon if needed)."""
     import subprocess
     import time
+
     from .ipc_client import ConnectionError as IPCConnectionError
     from .ipc_client import IPCClient, get_socket_path
     from .pid_manager import list_instances
@@ -1248,7 +1258,7 @@ def cmd_stream(args):
                         sys.exit(1)
                     continue
 
-            print(f"Daemon started successfully", file=sys.stderr)
+            print("Daemon started successfully", file=sys.stderr)
 
         except Exception as e:
             print(f"Failed to start daemon: {e}", file=sys.stderr)
@@ -1360,6 +1370,7 @@ def cmd_stream(args):
 def cmd_transcribe_file(args):
     """Transcribe a WAV file using the audio processing pipeline."""
     import wave
+
     import numpy as np
 
     # Initialize config manager
@@ -1405,7 +1416,7 @@ def cmd_transcribe_file(args):
 
             if sampwidth != 2:
                 print(
-                    f"Error: Only 16-bit (2 byte) WAV files are supported",
+                    "Error: Only 16-bit (2 byte) WAV files are supported",
                     file=sys.stderr,
                 )
                 sys.exit(1)
@@ -1540,7 +1551,7 @@ def cmd_transcribe_file(args):
                 f"\nTranscription complete. Total lines: {len(transcript_lines)}",
                 file=sys.stderr,
             )
-            print(f"--- Transcript ---", file=sys.stderr)
+            print("--- Transcript ---", file=sys.stderr)
             for line in transcript_lines:
                 print(line)
 

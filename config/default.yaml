@@ -96,7 +96,9 @@ ipc:
   enabled: true
 
   # Unix domain socket path template ({instance_name} will be replaced)
-  socket_path: "/tmp/vosk-wrapper-{instance_name}.sock"
+  # Note: Systemd RuntimeDirectory creates /run/user/$UID/vosk-wrapper-1000/
+  # Use {instance_name}.sock for the filename
+  socket_path: "/run/user/1000/vosk-wrapper-1000/{instance_name}.sock"
 
   # Broadcast partial transcription results to IPC clients
   send_partials: true

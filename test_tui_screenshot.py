@@ -11,7 +11,8 @@ async def test_tui():
     """Run TUI and export screenshot."""
     # Create test config
     test_config = Path("/tmp/test-vosk-config.yaml")
-    test_config.write_text("""
+    test_config.write_text(
+        """
 audio:
   noise_reduction_enabled: true
   noise_reduction_level: 0.05
@@ -22,7 +23,8 @@ audio:
   vad_hysteresis_chunks: 10
   pre_roll_duration: 2.0
   noise_reduction_min_rms_ratio: 0.5
-""")
+"""
+    )
 
     app = SettingsTUI(config_path=test_config)
 
@@ -44,13 +46,17 @@ audio:
         print(f"SettingsPanel children count: {len(list(settings_panel.children))}")
 
         for i, child in enumerate(settings_panel.children):
-            print(f"{i}: {child.__class__.__name__} - {child.id or '(no id)'} - classes: {child.classes}")
-            if hasattr(child, 'children'):
+            print(
+                f"{i}: {child.__class__.__name__} - {child.id or '(no id)'} - classes: {child.classes}"
+            )
+            if hasattr(child, "children"):
                 for j, subchild in enumerate(child.children):
-                    print(f"  {i}.{j}: {subchild.__class__.__name__} - {subchild.id or '(no id)'}")
+                    print(
+                        f"  {i}.{j}: {subchild.__class__.__name__} - {subchild.id or '(no id)'}"
+                    )
 
         # Check if settings are visible
-        from textual.widgets import Input, Checkbox
+        from textual.widgets import Checkbox, Input
 
         print("\n=== Settings Inputs ===")
         try:

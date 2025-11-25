@@ -27,6 +27,8 @@ A modular speech recognition toolkit using [Vosk](https://alphacephei.com/vosk/)
 
 ## Installation
 
+### Using uv or pip (Cross-platform)
+
 Install directly from GitHub using uv or pip:
 
 ```bash
@@ -36,6 +38,41 @@ uv tool install git+https://github.com/rwese/vosk-wrapper-1000-py
 # Using pip
 pip install git+https://github.com/rwese/vosk-wrapper-1000-py
 ```
+
+### Using Homebrew (macOS/Linux)
+
+```bash
+# Add tap (one-time setup)
+brew tap rwese/vosk-wrapper-1000 https://github.com/rwese/vosk-wrapper-1000-py
+
+# Install
+brew install vosk-wrapper-1000
+
+# Install as a service (automatically starts on login)
+brew services start vosk-wrapper-1000
+
+# Or run manually
+vosk-wrapper-1000 daemon
+```
+
+### Linux Systemd Service
+
+For automatic startup on Linux, set up a systemd user service:
+
+```bash
+# Install, enable, and start service
+./scripts/setup-systemd-service.sh --enable --start
+
+# Check status
+systemctl --user status vosk-wrapper-1000-default.service
+
+# View logs
+journalctl --user -u vosk-wrapper-1000-default.service -f
+```
+
+See [docs/SYSTEMD_SERVICE.md](docs/SYSTEMD_SERVICE.md) for detailed systemd setup and management.
+
+### Available Commands
 
 After installation, these commands will be available in your PATH:
 - `vosk-wrapper-1000` - Main daemon for continuous speech recognition

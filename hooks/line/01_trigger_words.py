@@ -31,12 +31,7 @@ from dataclasses import dataclass
 from enum import IntEnum
 from typing import Any, Callable, Dict, Optional
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(sys.stderr)],
-)
+# Get logger (logging is configured by the main application)
 logger = logging.getLogger(__name__)
 
 

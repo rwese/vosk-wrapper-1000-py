@@ -19,11 +19,9 @@ Options:
 
 import argparse
 import os
+import subprocess
 import sys
 import time
-import threading
-import subprocess
-import signal
 from pathlib import Path
 
 # Add the src directory to Python path so we can import the modules

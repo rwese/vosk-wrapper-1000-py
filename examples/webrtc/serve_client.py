@@ -34,9 +34,9 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def end_headers(self):
         """Add CORS headers to all responses."""
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         super().end_headers()
 
     def do_OPTIONS(self):
@@ -160,15 +160,17 @@ Make sure the vosk-wrapper-1000 daemon is running with WebRTC enabled:
             print("🌐 WebRTC Client Server")
             print("=" * 60)
             print(f"Serving at: {protocol}://{args.host}:{args.port}")
-            print(f"\n📄 Open in browser:")
+            print("\n📄 Open in browser:")
             print(f"   {protocol}://{args.host}:{args.port}/webrtc_client.html")
-            print(f"\n🎤 WebRTC server should be running at:")
+            print("\n🎤 WebRTC server should be running at:")
             print(f"   http://localhost:{args.webrtc_port}")
-            print(f"\n💡 Tips:")
-            print(f"   - Make sure vosk-wrapper-1000 daemon is running with --webrtc-enabled")
-            print(f"   - Grant microphone permissions when prompted by browser")
-            print(f"   - For HTTPS, browser may warn about self-signed certificate")
-            print(f"\n🛑 Press Ctrl+C to stop the server")
+            print("\n💡 Tips:")
+            print(
+                "   - Make sure vosk-wrapper-1000 daemon is running with --webrtc-enabled"
+            )
+            print("   - Grant microphone permissions when prompted by browser")
+            print("   - For HTTPS, browser may warn about self-signed certificate")
+            print("\n🛑 Press Ctrl+C to stop the server")
             print("=" * 60)
             print()
 

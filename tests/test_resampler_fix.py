@@ -8,24 +8,24 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from vosk_wrapper_1000.audio_processor import AudioProcessor
-from vosk_wrapper_1000.audio_recorder import AudioRecorder
-from vosk_wrapper_1000.model_manager import ModelManager
 import numpy as np
 import soxr
+
+from vosk_wrapper_1000.audio_processor import AudioProcessor
+from vosk_wrapper_1000.audio_recorder import AudioRecorder
 
 
 def test_resampler_initialization():
     """Test that resampler is properly initialized after rate updates."""
-    print("="*60)
+    print("=" * 60)
     print("Test: Resampler Initialization After Rate Update")
-    print("="*60)
+    print("=" * 60)
 
     # Simulate daemon initialization with placeholders (OLD BUG)
     print("\n1. Create AudioProcessor with placeholder rates (both 16000)...")
     audio_processor_old = AudioProcessor(
         device_rate=16000,  # Placeholder
-        model_rate=16000,   # Placeholder
+        model_rate=16000,  # Placeholder
         noise_filter_enabled=False,
     )
     print(f"   device_rate: {audio_processor_old.device_rate}")
@@ -52,9 +52,11 @@ def test_resampler_initialization():
             in_rate=audio_processor_old.device_rate,
             out_rate=audio_processor_old.model_rate,
             num_channels=1,
-            quality="HQ"
+            quality="HQ",
         )
-        print(f"   Resampler created: {audio_processor_old.device_rate} Hz → {audio_processor_old.model_rate} Hz")
+        print(
+            f"   Resampler created: {audio_processor_old.device_rate} Hz → {audio_processor_old.model_rate} Hz"
+        )
 
     print(f"   soxr_resampler: {audio_processor_old.soxr_resampler}")
 
@@ -70,7 +72,7 @@ def test_resampler_initialization():
 
     processed = audio_processor_old.process_audio_chunk(test_audio_44100)
     print(f"   Output: {len(processed)} samples @ 16000 Hz")
-    print(f"   Expected output: ~16000 samples")
+    print("   Expected output: ~16000 samples")
 
     if 15500 < len(processed) < 16500:  # Allow some tolerance
         print("   ✓ Resampling works correctly!")
@@ -86,6 +88,7 @@ def test_resampler_initialization():
     audio_recorder.stop_recording()
 
     import wave
+
     with wave.open(temp_file, "rb") as wf:
         print(f"   WAV header sample rate: {wf.getframerate()} Hz")
         print(f"   Expected: {audio_processor_old.model_rate} Hz")
@@ -96,9 +99,9 @@ def test_resampler_initialization():
 
     Path(temp_file).unlink()
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Test Complete!")
-    print("="*60)
+    print("=" * 60)
 
 
 if __name__ == "__main__":

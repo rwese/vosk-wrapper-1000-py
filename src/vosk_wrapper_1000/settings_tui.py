@@ -10,7 +10,7 @@ from typing import Optional
 import numpy as np
 import yaml
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import (
     Button,
     Checkbox,
@@ -591,9 +591,12 @@ class SettingsTUI(App):
         """Update monitor display from queue."""
         while self.monitoring:
             try:
-                rms, is_in_speech, consecutive_silent, chunks_returned = (
-                    self.monitor_queue.get(timeout=0.1)
-                )
+                (
+                    rms,
+                    is_in_speech,
+                    consecutive_silent,
+                    chunks_returned,
+                ) = self.monitor_queue.get(timeout=0.1)
                 try:
                     monitor = self.query_one("#audio-monitor", AudioMonitor)
                     monitor.update_rms(rms)

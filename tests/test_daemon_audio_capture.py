@@ -22,7 +22,7 @@ def test_daemon_style_capture(duration=3.0):
     print("\nThis simulates the daemon's audio stream configuration:")
 
     # Get device info (same as daemon does)
-    device_info = sd.query_devices(kind='input')
+    device_info = sd.query_devices(kind="input")
     device_samplerate = int(device_info["default_samplerate"])
 
     print(f"  Device: {device_info['name']}")
@@ -58,11 +58,13 @@ def test_daemon_style_capture(duration=3.0):
         channels=1,  # Explicitly mono
     )
 
-    print(f"\nAudioProcessor config:")
+    print("\nAudioProcessor config:")
     print(f"  device_rate: {audio_processor.device_rate}")
     print(f"  model_rate: {audio_processor.model_rate}")
     print(f"  channels: {audio_processor.channels}")
-    print(f"  Will resample: {audio_processor.device_rate != audio_processor.model_rate}")
+    print(
+        f"  Will resample: {audio_processor.device_rate != audio_processor.model_rate}"
+    )
 
     chunk_count = [0]
     total_raw_frames = [0]
@@ -87,14 +89,18 @@ def test_daemon_style_capture(duration=3.0):
 
             chunk_count[0] += 1
             if chunk_count[0] % 20 == 0:
-                print(f"  Chunk {chunk_count[0]}: raw={frames} frames, processed={len(processed_audio)} frames", end='\r')
+                print(
+                    f"  Chunk {chunk_count[0]}: raw={frames} frames, processed={len(processed_audio)} frames",
+                    end="\r",
+                )
 
         except Exception as e:
             print(f"\nError in callback: {e}", file=sys.stderr)
             import traceback
+
             traceback.print_exc()
 
-    print(f"\nRecording (please speak into microphone)...")
+    print("\nRecording (please speak into microphone)...")
     print(f"Recording will stop automatically after {duration} seconds\n")
 
     # Create stream EXACTLY like daemon does
@@ -117,11 +123,11 @@ def test_daemon_style_capture(duration=3.0):
     raw_wav.close()
     processed_wav.close()
 
-    print(f"\n\nCapture complete!")
+    print("\n\nCapture complete!")
     print(f"  Total chunks: {chunk_count[0]}")
     print(f"  Raw frames: {total_raw_frames[0]:,}")
     print(f"  Processed frames: {total_processed_frames[0]:,}")
-    print(f"\nFiles saved:")
+    print("\nFiles saved:")
     print(f"  Raw (mic input):       {raw_file}")
     print(f"  Processed (to Vosk):   {processed_file}")
 
@@ -131,14 +137,14 @@ def test_daemon_style_capture(duration=3.0):
     print(f"{'='*60}")
 
     with wave.open(str(raw_file), "rb") as wf:
-        print(f"\nRaw capture:")
+        print("\nRaw capture:")
         print(f"  Sample rate: {wf.getframerate()} Hz")
         print(f"  Channels: {wf.getnchannels()}")
         print(f"  Frames: {wf.getnframes():,}")
         print(f"  Duration: {wf.getnframes() / wf.getframerate():.2f} sec")
 
     with wave.open(str(processed_file), "rb") as wf:
-        print(f"\nProcessed (sent to Vosk):")
+        print("\nProcessed (sent to Vosk):")
         print(f"  Sample rate: {wf.getframerate()} Hz")
         print(f"  Channels: {wf.getnchannels()}")
         print(f"  Frames: {wf.getnframes():,}")
@@ -150,9 +156,9 @@ def test_daemon_style_capture(duration=3.0):
         print(f"  RMS: {rms:.2f}")
 
         if rms < 100:
-            print(f"  ⚠️  WARNING: Audio is very quiet or silent!")
+            print("  ⚠️  WARNING: Audio is very quiet or silent!")
 
-    print(f"\nTo listen to the files:")
+    print("\nTo listen to the files:")
     print(f"  play {raw_file}")
     print(f"  play {processed_file}")
 

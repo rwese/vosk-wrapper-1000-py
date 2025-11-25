@@ -4,7 +4,6 @@ Unit tests for IPC server functionality.
 
 import tempfile
 import unittest
-from unittest.mock import patch
 
 from vosk_wrapper_1000.ipc_server import IPCServer
 

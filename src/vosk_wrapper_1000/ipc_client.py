@@ -355,4 +355,28 @@ def get_socket_path(instance_name: str) -> str:
     Returns:
         Path to Unix domain socket
     """
-    return f"/tmp/vosk-wrapper-{instance_name}.sock"
+    # Try to read from config file first
+    try:
+        from .config_manager import ConfigManager
+
+        config_manager = ConfigManager()
+        config = config_manager.load_config()
+        return config.ipc.socket_path.format(instance_name=instance_name)
+    except Exception:
+        # Fallback: Try systemd RuntimeDirectory location first, then /tmp
+        import os
+
+        uid = os.getuid()
+
+        # Systemd RuntimeDirectory: /run/user/UID/vosk-wrapper-1000/
+        systemd_socket = f"/run/user/{uid}/vosk-wrapper-1000/{instance_name}.sock"
+        if os.path.exists(systemd_socket):
+            return systemd_socket
+
+        # Legacy /run/user/UID location
+        legacy_socket = f"/run/user/{uid}/vosk-wrapper-{instance_name}.sock"
+        if os.path.exists(legacy_socket):
+            return legacy_socket
+
+        # Fallback to /tmp for non-systemd environments
+        return f"/tmp/vosk-wrapper-{instance_name}.sock"
