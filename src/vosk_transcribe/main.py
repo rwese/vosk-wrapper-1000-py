@@ -41,20 +41,30 @@ def transcribe_file(
 
     # Initialize model manager
     model_manager = ModelManager()
-    if model_path:
-        # Resolve the provided model path
-        resolved_path = model_manager.resolve_model_path(model_path, backend_type)
+
+    # For Whisper backends, use model names directly (they handle caching)
+    if backend_type in ["whisper", "faster-whisper"]:
+        if model_path:
+            resolved_path = model_path
+        else:
+            # Default models for Whisper backends
+            resolved_path = "base.en"
     else:
-        # Try to find a default model
-        available_models = model_manager.list_available_models()
-        if not available_models:
-            raise RuntimeError(
-                "No models found. Please download a model first using vosk-download-model-1000"
+        # For Vosk, resolve the model path
+        if model_path:
+            # Resolve the provided model path
+            resolved_path = model_manager.resolve_model_path(model_path, backend_type)
+        else:
+            # Try to find a default model
+            available_models = model_manager.list_available_models()
+            if not available_models:
+                raise RuntimeError(
+                    "No models found. Please download a model first using vosk-download-model-1000"
+                )
+            # Use the first available model as default
+            resolved_path = model_manager.resolve_model_path(
+                available_models[0], backend_type
             )
-        # Use the first available model as default
-        resolved_path = model_manager.resolve_model_path(
-            available_models[0], backend_type
-        )
 
     # Get model sample rate
     model_sample_rate = model_manager.get_model_sample_rate(

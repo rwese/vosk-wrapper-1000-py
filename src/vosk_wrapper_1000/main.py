@@ -375,12 +375,20 @@ def run_service(args):
         print(f"Using backend from command line: {backend_type}", file=sys.stderr)
 
     # Resolve model path (support short names like "vosk-model-en-gb-0.1")
-    try:
-        resolved_model_path = model_manager.resolve_model_path(model_path, backend_type)
-        args.model = str(resolved_model_path)
-    except FileNotFoundError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+    # Note: Whisper and FasterWhisper use model names, not paths
+    if backend_type in ["whisper", "faster-whisper"]:
+        # For Whisper backends, use the model name as-is (they handle caching)
+        args.model = model_path
+    else:
+        # For Vosk, resolve the model path
+        try:
+            resolved_model_path = model_manager.resolve_model_path(
+                model_path, backend_type
+            )
+            args.model = str(resolved_model_path)
+        except FileNotFoundError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
 
     # Initialize IPC server if enabled
     ipc_server = None

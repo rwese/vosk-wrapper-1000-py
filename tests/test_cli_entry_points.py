@@ -58,7 +58,7 @@ class TestCLIEntryPoints(unittest.TestCase):
             text=True,
         )
         self.assertEqual(result.returncode, 0, f"Command failed: {result.stderr}")
-        self.assertIn("Download and manage Vosk models", result.stdout)
+        self.assertIn("Download and manage speech recognition models", result.stdout)
 
     def test_vosk_transcribe_file_import(self):
         """Test that vosk-transcribe-file entry point can be imported."""
