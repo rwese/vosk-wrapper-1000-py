@@ -41,13 +41,39 @@ User Command → send_signal_to_instance() → Process receives signal
 
 ### 4. Audio Processing Pipeline
 
+For a comprehensive explanation of the complete audio processing pipeline, see **[docs/AUDIO_PROCESSING.md](docs/AUDIO_PROCESSING.md)**.
+
+**Quick Overview:**
+
 ```
-Hardware → Audio Backend → Callback (noise filter + resample) → Queue → Vosk Recognizer → Output
+Hardware → Audio Backend → Mono Conversion → Audio Processing → VAD → Queue → Vosk Recognizer → Output
+                                                    ↓
+                              ┌──────────────────────────────────────┐
+                              │  1. [Optional] Normalization         │
+                              │  2. [Optional] Noise Reduction       │
+                              │  3. [Optional] Resampling (soxr HQ)  │
+                              └──────────────────────────────────────┘
 ```
 
-- **Noise Filtering**: Optional stateless noise reduction (enabled by default)
-- **Resampling**: Device rate (48kHz) → Model rate (16kHz) using scipy
+**Key Features:**
+- **Voice Activity Detection (VAD)**: Pre-roll buffering prevents cutting off word beginnings
+- **Noise Filtering**: Stationary or non-stationary noise reduction with safety validation
+- **Resampling**: soxr HQ streaming resampler (device rate → model rate)
+- **Normalization**: Optional audio level normalization for consistent recognition
 - **Non-blocking Queue**: `put_nowait()` drops frames if processing is slow
+- **Hysteresis**: Allows natural pauses in speech without ending detection
+
+**Configuration:**
+```bash
+# Full audio processing with all features
+vosk-wrapper-1000 daemon \
+  --normalize-audio \
+  --noise-reduction 0.05 \
+  --non-stationary-noise \
+  --silence-threshold 50.0 \
+  --vad-hysteresis 10 \
+  --pre-roll-duration 2.0
+```
 
 ### 5. Hook System (`hook_manager.py`)
 

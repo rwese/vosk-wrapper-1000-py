@@ -292,6 +292,8 @@ vosk-wrapper-1000 daemon
 
 ## Enhanced Audio Processing
 
+> **📖 For a comprehensive explanation of the complete audio processing pipeline, see [docs/AUDIO_PROCESSING.md](docs/AUDIO_PROCESSING.md)**
+
 ### **High-Quality Audio Resampling**
 
 Vosk-wrapper-1000 now uses **soxr** for high-quality streaming resampling:

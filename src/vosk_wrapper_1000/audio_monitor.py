@@ -11,7 +11,6 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import sounddevice as sd
@@ -45,7 +44,7 @@ class WaveformWidget(Widget):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.audio_data: Optional[np.ndarray] = None
+        self.audio_data: np.ndarray | None = None
         self.sample_rate = 16000
 
     def set_audio_data(self, data: np.ndarray, sample_rate: int):
@@ -147,8 +146,8 @@ class AudioMonitorApp(textual.App):
     ]
 
     is_recording = reactive(False)
-    audio_data: Optional[np.ndarray] = reactive(None)
-    current_file: Optional[Path] = reactive(None)
+    audio_data: np.ndarray | None = reactive(None)
+    current_file: Path | None = reactive(None)
 
     def __init__(self):
         super().__init__()
@@ -156,11 +155,11 @@ class AudioMonitorApp(textual.App):
         self.device_manager = DeviceManager()
         self.model_manager = ModelManager()
         self.temp_dir = Path(tempfile.mkdtemp())
-        self.recording_stream: Optional[sd.InputStream] = None
-        self.playback_stream: Optional[sd.OutputStream] = None
-        self.recorder: Optional[AudioRecorder] = None
-        self.audio_processor: Optional[AudioProcessor] = None
-        self.processed_audio_data: Optional[np.ndarray] = None
+        self.recording_stream: sd.InputStream | None = None
+        self.playback_stream: sd.OutputStream | None = None
+        self.recorder: AudioRecorder | None = None
+        self.audio_processor: AudioProcessor | None = None
+        self.processed_audio_data: np.ndarray | None = None
 
     def compose(self):
         """Compose the UI layout."""
@@ -251,7 +250,7 @@ class AudioMonitorApp(textual.App):
             # UI elements may not be available during shutdown
             pass
 
-    def watch_audio_data(self, data: Optional[np.ndarray]):
+    def watch_audio_data(self, data: np.ndarray | None):
         """Update waveform when audio data changes."""
         if data is not None and len(data) > 0:
             waveform = self.query_one("#waveform", WaveformWidget)
@@ -498,7 +497,11 @@ class AudioMonitorApp(textual.App):
         audio_to_play = self.processed_audio_data if has_processed else self.audio_data
 
         # Verify we have valid audio data
-        if audio_to_play is None or not isinstance(audio_to_play, np.ndarray) or audio_to_play.size == 0:
+        if (
+            audio_to_play is None
+            or not isinstance(audio_to_play, np.ndarray)
+            or audio_to_play.size == 0
+        ):
             msg = "No audio data available for playback"
             logger.warning(msg)
             self.query_one("#status", widgets.Static).update(msg)
@@ -708,9 +711,7 @@ def main():
     parser.add_argument(
         "--channels", type=int, default=1, help="Number of audio channels"
     )
-    parser.add_argument(
-        "--debug", action="store_true", help="Enable debug logging"
-    )
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
 
     args = parser.parse_args()
 
@@ -719,9 +720,9 @@ def main():
         logger.setLevel(logging.DEBUG)
         logger.info("Debug logging enabled")
 
-    logger.info("="*60)
+    logger.info("=" * 60)
     logger.info("Audio Monitor for vosk-wrapper-1000")
-    logger.info("="*60)
+    logger.info("=" * 60)
     logger.info(f"Python version: {sys.version}")
     logger.info(f"Command line args: {args}")
 
@@ -746,9 +747,9 @@ def main():
         print("Check audio_monitor.log for details", file=sys.stderr)
         sys.exit(1)
 
-    logger.info("="*60)
+    logger.info("=" * 60)
     logger.info("Audio Monitor session ended")
-    logger.info("="*60)
+    logger.info("=" * 60)
 
 
 if __name__ == "__main__":

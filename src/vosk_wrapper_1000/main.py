@@ -679,19 +679,36 @@ def run_service(args):
                     new_config = config_manager.reload_config()
 
                     # Update audio processor settings
-                    audio_processor.noise_filter_enabled = new_config.audio.noise_reduction_enabled
-                    audio_processor.noise_reduction_strength = new_config.audio.noise_reduction_level
+                    audio_processor.noise_filter_enabled = (
+                        new_config.audio.noise_reduction_enabled
+                    )
+                    audio_processor.noise_reduction_strength = (
+                        new_config.audio.noise_reduction_level
+                    )
                     audio_processor.stationary_noise = new_config.audio.stationary_noise
-                    audio_processor.silence_threshold = new_config.audio.silence_threshold
+                    audio_processor.silence_threshold = (
+                        new_config.audio.silence_threshold
+                    )
                     audio_processor.normalize_audio = new_config.audio.normalize_audio
-                    audio_processor.normalization_target_level = new_config.audio.normalization_target_level
-                    audio_processor.vad_hysteresis_chunks = new_config.audio.vad_hysteresis_chunks
-                    audio_processor.noise_reduction_min_rms_ratio = new_config.audio.noise_reduction_min_rms_ratio
-                    audio_processor.pre_roll_duration = new_config.audio.pre_roll_duration
+                    audio_processor.normalization_target_level = (
+                        new_config.audio.normalization_target_level
+                    )
+                    audio_processor.vad_hysteresis_chunks = (
+                        new_config.audio.vad_hysteresis_chunks
+                    )
+                    audio_processor.noise_reduction_min_rms_ratio = (
+                        new_config.audio.noise_reduction_min_rms_ratio
+                    )
+                    audio_processor.pre_roll_duration = (
+                        new_config.audio.pre_roll_duration
+                    )
 
                     # Update logging level
                     import logging
-                    logging.getLogger().setLevel(getattr(logging, new_config.logging.level.upper(), logging.INFO))
+
+                    logging.getLogger().setLevel(
+                        getattr(logging, new_config.logging.level.upper(), logging.INFO)
+                    )
 
                     # Update in-memory config reference
                     config = new_config
