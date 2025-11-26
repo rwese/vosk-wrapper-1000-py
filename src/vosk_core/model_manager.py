@@ -2,7 +2,6 @@
 
 import os
 from pathlib import Path
-from typing import List, Tuple, Union
 
 from .xdg_paths import get_default_model_path, get_models_dir
 
@@ -14,7 +13,7 @@ class ModelManager:
         self.models_dir = get_models_dir()
         self.default_model = get_default_model_path()
 
-    def resolve_model_path(self, model_path: Union[str, Path]) -> Path:
+    def resolve_model_path(self, model_path: str | Path) -> Path:
         """Resolve a model path or name to an absolute path.
 
         Args:
@@ -65,7 +64,7 @@ class ModelManager:
         # Default to 16000 if not found
         return 16000
 
-    def validate_model(self, model_path: str) -> Tuple[bool, str]:
+    def validate_model(self, model_path: str) -> tuple[bool, str]:
         """Validate that model exists and is accessible."""
         if not os.path.exists(model_path):
             return False, f"Model path does not exist: {model_path}"
@@ -86,7 +85,7 @@ class ModelManager:
 
         return True, "Model validation passed"
 
-    def list_available_models(self) -> List[str]:
+    def list_available_models(self) -> list[str]:
         """List all available models in the models directory."""
         models = []
         if os.path.exists(self.models_dir):

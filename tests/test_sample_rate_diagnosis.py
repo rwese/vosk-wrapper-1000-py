@@ -14,9 +14,9 @@ ASSETS_DIR = TESTS_DIR / "assets"
 
 def analyze_wav_file(filepath):
     """Analyze a WAV file and print its properties."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Analyzing: {filepath.name}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     try:
         with wave.open(str(filepath), "rb") as wf:
@@ -96,9 +96,9 @@ def analyze_wav_file(filepath):
 
 def check_microphone_properties():
     """Check the default microphone's properties."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Default Microphone Properties")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     try:
         # Get default input device
@@ -144,9 +144,9 @@ def check_microphone_properties():
 
 def test_record_short_sample(duration=2.0, channels=1, samplerate=16000):
     """Record a short audio sample and analyze it."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Recording Test Sample ({channels} ch @ {samplerate} Hz)")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     try:
         print(f"  Recording for {duration} seconds...")
@@ -201,9 +201,9 @@ def test_record_short_sample(duration=2.0, channels=1, samplerate=16000):
 
 def compare_daemon_vs_transcribe_recordings():
     """Compare recordings made by daemon vs transcribe-file."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Comparing Daemon vs Transcribe-File Recordings")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     # Look for existing recordings
     daemon_recordings = list(ASSETS_DIR.glob("*daemon*.wav"))
@@ -241,9 +241,9 @@ def main():
     # 2. Analyze existing test files
     test_files = list(ASSETS_DIR.glob("*.wav"))
     if test_files:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Analyzing Existing Test Files ({len(test_files)} found)")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         for test_file in sorted(test_files):
             analyze_wav_file(test_file)
 
@@ -251,9 +251,9 @@ def main():
     compare_daemon_vs_transcribe_recordings()
 
     # 4. Offer to record test samples
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Interactive Tests")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     response = input("\nWould you like to record test samples? (y/N): ").strip().lower()
     if response == "y":
@@ -266,9 +266,9 @@ def main():
             if response == "y":
                 test_record_short_sample(duration=3.0, channels=2, samplerate=16000)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Diagnostic Complete!")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print("\nRecommendations:")
     print("  1. Check if daemon recordings have correct sample rate in WAV header")
     print("  2. Compare RMS levels between daemon and transcribe-file recordings")

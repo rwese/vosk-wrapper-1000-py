@@ -5,7 +5,6 @@ import queue
 import sys
 import threading
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import yaml
@@ -312,7 +311,7 @@ class SettingsTUI(App):
         ("m", "toggle_monitor", "Monitor"),
     ]
 
-    def __init__(self, config_path: Optional[Path] = None):
+    def __init__(self, config_path: Path | None = None):
         super().__init__()
         xdg = XDGPaths()
         self.config_path = config_path or (xdg.get_config_dir() / "config.yaml")

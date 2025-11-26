@@ -12,7 +12,7 @@ import os
 import select
 import socket
 import time
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ class IPCClient:
         self.addr = addr
         self.buffer = ""
         self.subscribed = False
-        self.subscribed_events: Set[str] = set()
+        self.subscribed_events: set[str] = set()
         self.connected_at = time.time()
 
     def fileno(self):
@@ -50,8 +50,8 @@ class IPCServer:
         """
         self.socket_path = socket_path
         self.send_partials = send_partials
-        self.server_sock: Optional[socket.socket] = None
-        self.clients: List[IPCClient] = []
+        self.server_sock: socket.socket | None = None
+        self.clients: list[IPCClient] = []
         self.session_id = str(uuid4())
         self.started_at = time.time()
 
@@ -108,7 +108,7 @@ class IPCServer:
 
         logger.info("IPC server stopped")
 
-    def process(self, timeout: float = 0.0) -> List[Dict[str, Any]]:
+    def process(self, timeout: float = 0.0) -> list[dict[str, Any]]:
         """Process pending connections and messages (non-blocking).
 
         Should be called regularly from main event loop.
@@ -165,10 +165,10 @@ class IPCServer:
     def send_response(
         self,
         client: IPCClient,
-        request_id: Optional[str],
+        request_id: str | None,
         success: bool,
-        data: Optional[Dict] = None,
-        error: Optional[Dict] = None,
+        data: dict | None = None,
+        error: dict | None = None,
     ):
         """Send response to a specific client.
 
@@ -179,7 +179,7 @@ class IPCServer:
             data: Response data (if success=True)
             error: Error details (if success=False)
         """
-        response: Dict[str, Any] = {
+        response: dict[str, Any] = {
             "id": request_id,
             "type": "response",
             "success": success,
@@ -195,7 +195,7 @@ class IPCServer:
 
         self._send_to_client(client, response)
 
-    def broadcast_event(self, event: Dict[str, Any], event_type: Optional[str] = None):
+    def broadcast_event(self, event: dict[str, Any], event_type: str | None = None):
         """Broadcast event to all subscribed clients.
 
         Args:
@@ -231,7 +231,7 @@ class IPCServer:
         except OSError as e:
             logger.error(f"Error accepting connection: {e}")
 
-    def _read_client(self, client: IPCClient) -> List[Dict[str, Any]]:
+    def _read_client(self, client: IPCClient) -> list[dict[str, Any]]:
         """Read and parse messages from client.
 
         Args:
@@ -240,7 +240,7 @@ class IPCServer:
         Returns:
             List of parsed JSON messages
         """
-        messages: List[Dict[str, Any]] = []
+        messages: list[dict[str, Any]] = []
 
         try:
             data = client.sock.recv(4096).decode("utf-8")
@@ -274,7 +274,7 @@ class IPCServer:
 
         return messages
 
-    def _send_to_client(self, client: IPCClient, message: Dict[str, Any]):
+    def _send_to_client(self, client: IPCClient, message: dict[str, Any]):
         """Send JSON message to client.
 
         Args:
@@ -290,7 +290,7 @@ class IPCServer:
             self._close_client(client)
 
     def _send_error(
-        self, client: IPCClient, request_id: Optional[str], code: str, message: str
+        self, client: IPCClient, request_id: str | None, code: str, message: str
     ):
         """Send error response to client.
 

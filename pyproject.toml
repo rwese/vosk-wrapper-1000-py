@@ -7,7 +7,7 @@ name = "vosk-wrapper-1000"
 version = "0.1.0"
 description = "Modular speech recognition toolkit with Vosk - includes daemon, file transcription, and core library"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.12"
 dependencies = [
     "vosk==0.3.44",
     "sounddevice",
@@ -29,6 +29,7 @@ vosk-wrapper-1000 = "vosk_wrapper_1000.main:main"
 vosk-download-model-1000 = "vosk_core.download_model:main"
 vosk-transcribe-file = "vosk_transcribe.main:main"
 vosk-settings-tui = "vosk_wrapper_1000.settings_tui:main"
+vosk-audio-monitor = "vosk_wrapper_1000.audio_monitor:main"
 
 [tool.hatch.build.targets.wheel]
 only-include = [
@@ -76,7 +77,7 @@ markers = [
 
 [tool.ruff]
 line-length = 88
-target-version = "py38"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = [
@@ -109,7 +110,7 @@ ignore = [
 
 [tool.black]
 line-length = 88
-target-version = ['py38']
+target-version = ['py312']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -132,7 +133,7 @@ line_length = 88
 known_first_party = ["vosk_core", "vosk_wrapper_1000", "vosk_transcribe"]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
@@ -147,6 +148,11 @@ warn_unreachable = true
 strict_equality = true
 show_error_codes = true
 show_column_numbers = true
+exclude = [
+    "hooks/",
+    ".venv/",
+    "venv/",
+]
 
 [[tool.mypy.overrides]]
 module = [

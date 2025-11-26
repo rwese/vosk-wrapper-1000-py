@@ -1,15 +1,4 @@
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.6
-    hooks:
-      - id: ruff
-        args: [--fix]
-      - id: ruff-format
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-        args: ["--profile", "black"]
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
@@ -20,12 +9,6 @@ repos:
       - id: check-merge-conflict
       - id: check-toml
       - id: debug-statements
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.10.0
-    hooks:
-      - id: mypy
-        additional_dependencies: [types-PyYAML>=6.0.0, types-requests>=2.31.0]
-        args: [--ignore-missing-imports, --show-error-codes]
   - repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0
     hooks:
@@ -39,3 +22,38 @@ repos:
     rev: v0.42.0
     hooks:
       - id: markdownlint
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+        require_serial: true
+        exclude: ^(hooks/|scripts/|examples/|tests/)
+      - id: ruff-format
+        name: ruff-format
+        entry: uv run ruff format
+        language: system
+        types: [python]
+        require_serial: true
+        exclude: ^(hooks/|scripts/|examples/|tests/)
+      - id: isort
+        name: isort
+        entry: uv run isort --profile black
+        language: system
+        types: [python]
+      - id: mypy
+        name: mypy
+        entry: bash -c 'uv run mypy src/'
+        language: system
+        pass_filenames: false
+        types: [python]
+        require_serial: true
+      - id: pytest
+        name: pytest
+        entry: uv run pytest
+        language: system
+        pass_filenames: false
+        always_run: true
+        args: [tests/, -v, --tb=short, -n, auto]

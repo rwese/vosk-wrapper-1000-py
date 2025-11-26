@@ -9,7 +9,6 @@ import queue
 import signal
 import sys
 import time
-from typing import List
 from uuid import uuid4
 
 # Import local modules
@@ -354,9 +353,23 @@ def run_service(args):
     device_manager = DeviceManager()
     hook_manager = HookManager(args.hooks_dir)
 
+    # Determine model path: CLI arg > config file > default
+    model_path = args.model
+    if model_path is None:
+        # Use config file if available
+        if config.model.path:
+            model_path = config.model.path
+            print(f"Using model from config: {model_path}", file=sys.stderr)
+        else:
+            # Fall back to default
+            model_path = model_manager.default_model
+            print(f"Using default model: {model_path}", file=sys.stderr)
+    else:
+        print(f"Using model from command line: {model_path}", file=sys.stderr)
+
     # Resolve model path (support short names like "vosk-model-en-gb-0.1")
     try:
-        resolved_model_path = model_manager.resolve_model_path(args.model)
+        resolved_model_path = model_manager.resolve_model_path(model_path)
         args.model = str(resolved_model_path)
     except FileNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)
@@ -606,7 +619,7 @@ def run_service(args):
     # Audio Stream Management
     stream = None
     audio_queue: queue.Queue[bytes] = queue.Queue()
-    transcript_buffer: List[str] = []
+    transcript_buffer: list[str] = []
     callback_counter = [0]  # Use list to allow modification in nested function
 
     # Special marker to indicate speech end
@@ -658,6 +671,39 @@ def run_service(args):
 
     try:
         while signal_manager.is_running():
+            # Check for configuration reload request
+            if signal_manager.should_reload_config():
+                logger.info("Reloading configuration...")
+                try:
+                    # Reload configuration from disk
+                    new_config = config_manager.reload_config()
+
+                    # Update audio processor settings
+                    audio_processor.noise_filter_enabled = new_config.audio.noise_reduction_enabled
+                    audio_processor.noise_reduction_strength = new_config.audio.noise_reduction_level
+                    audio_processor.stationary_noise = new_config.audio.stationary_noise
+                    audio_processor.silence_threshold = new_config.audio.silence_threshold
+                    audio_processor.normalize_audio = new_config.audio.normalize_audio
+                    audio_processor.normalization_target_level = new_config.audio.normalization_target_level
+                    audio_processor.vad_hysteresis_chunks = new_config.audio.vad_hysteresis_chunks
+                    audio_processor.noise_reduction_min_rms_ratio = new_config.audio.noise_reduction_min_rms_ratio
+                    audio_processor.pre_roll_duration = new_config.audio.pre_roll_duration
+
+                    # Update logging level
+                    import logging
+                    logging.getLogger().setLevel(getattr(logging, new_config.logging.level.upper(), logging.INFO))
+
+                    # Update in-memory config reference
+                    config = new_config
+
+                    logger.info("Configuration reloaded successfully")
+                    print("✅ Configuration reloaded successfully", file=sys.stderr)
+                except Exception as e:
+                    logger.error(f"Failed to reload configuration: {e}")
+                    print(f"❌ Failed to reload configuration: {e}", file=sys.stderr)
+                finally:
+                    signal_manager.reset_reload_flag()
+
             # Process IPC commands (non-blocking)
             if ipc_server:
                 commands = ipc_server.process(timeout=0.0)
@@ -684,7 +730,7 @@ def run_service(args):
                             audio_bytes,
                             sample_rate,
                             channels,
-                            peer_id,
+                            _peer_id,
                         ) = webrtc_audio_queue.get_nowait()
                         # Process WebRTC audio through the audio processor
                         audio_chunks = audio_processor.process_webrtc_audio(
@@ -1249,7 +1295,7 @@ def cmd_stream(args):
                     with IPCClient(socket_path, timeout=1.0) as test_client:
                         test_client.send_command("status")
                         break
-                except:
+                except Exception:
                     if attempt == max_retries - 1:
                         print(
                             "Failed to connect to daemon after startup", file=sys.stderr
@@ -1280,7 +1326,7 @@ def cmd_stream(args):
                 if not status.get("listening", False):
                     print("Starting listening...", file=sys.stderr)
                     client.send_command("start")
-            except:
+            except Exception:
                 pass  # Ignore status check errors
 
             start_time = time.time()
@@ -1335,7 +1381,7 @@ def cmd_stream(args):
             # Stop listening
             try:
                 client.send_command("stop")
-            except:
+            except Exception:
                 pass  # Ignore stop errors
 
     except IPCConnectionError:
@@ -1358,13 +1404,13 @@ def cmd_stream(args):
 
                 send_signal_to_instance(args.name, signal.SIGTERM)
                 print(f"Terminated auto-started daemon '{args.name}'", file=sys.stderr)
-            except:
+            except Exception:
                 pass  # Ignore cleanup errors
 
             if daemon_proc:
                 try:
                     daemon_proc.wait(timeout=5.0)
-                except:
+                except Exception:
                     daemon_proc.kill()
 
 
@@ -1373,9 +1419,6 @@ def cmd_transcribe_file(args):
     import wave
 
     import numpy as np
-
-    # Initialize config manager
-    config_manager = ConfigManager()
 
     # Initialize model manager
     model_manager = ModelManager()
@@ -1523,7 +1566,7 @@ def cmd_transcribe_file(args):
                 if rec.AcceptWaveform(bytes(processed_audio)):
                     result = json.loads(rec.Result())
                     # Handle alternatives if enabled
-                    if "alternatives" in result and result["alternatives"]:
+                    if result.get("alternatives"):
                         # Use the first (best) alternative
                         text = result["alternatives"][0].get("text", "")
                     else:
@@ -1534,7 +1577,7 @@ def cmd_transcribe_file(args):
             # Get final result
             final_result = json.loads(rec.FinalResult())
             # Handle alternatives if enabled
-            if "alternatives" in final_result and final_result["alternatives"]:
+            if final_result.get("alternatives"):
                 # Use the first (best) alternative
                 final_text = final_result["alternatives"][0].get("text", "")
             else:
@@ -1614,8 +1657,8 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
     daemon_parser.add_argument(
         "--model",
         type=str,
-        default=default_model,
-        help=f"Path to Vosk model directory (default: {default_model})",
+        default=None,
+        help=f"Path to Vosk model directory (default: from config or {default_model})",
     )
     daemon_parser.add_argument(
         "--device", type=str, default=None, help="Input device ID or Name substring"

@@ -10,7 +10,7 @@ audio processing pipeline.
 import asyncio
 import logging
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 from aiohttp import web
@@ -104,7 +104,7 @@ class WebRTCPeer:
         self.peer_id = peer_id
         self.audio_callback = audio_callback
         self.pc = RTCPeerConnection()
-        self.audio_sink: Optional[AudioSink] = None
+        self.audio_sink: AudioSink | None = None
 
         # Track connection state
         @self.pc.on("connectionstatechange")
@@ -121,7 +121,7 @@ class WebRTCPeer:
                 self.audio_sink = AudioSink(track, audio_callback, peer_id)
                 await self.audio_sink.start()
 
-    async def create_offer(self) -> Dict[str, str]:
+    async def create_offer(self) -> dict[str, str]:
         """Create WebRTC offer.
 
         Returns:
@@ -151,7 +151,7 @@ class WebRTCPeer:
 class WebRTCServer:
     """WebRTC signaling server for browser-based speech recognition."""
 
-    def __init__(self, config: Dict[str, Any], audio_callback):
+    def __init__(self, config: dict[str, Any], audio_callback):
         """Initialize WebRTC server.
 
         Args:
@@ -162,11 +162,11 @@ class WebRTCServer:
         self.config = config
         self.audio_callback = audio_callback
         self.running = False
-        self.app: Optional[web.Application] = None
-        self.runner: Optional[web.AppRunner] = None
-        self.site: Optional[web.TCPSite] = None
-        self.peers: Dict[str, WebRTCPeer] = {}
-        self._server_task: Optional[asyncio.Task] = None
+        self.app: web.Application | None = None
+        self.runner: web.AppRunner | None = None
+        self.site: web.TCPSite | None = None
+        self.peers: dict[str, WebRTCPeer] = {}
+        self._server_task: asyncio.Task | None = None
 
     async def _handle_offer(self, request: web.Request) -> web.Response:
         """Handle WebRTC offer request from client.
@@ -349,7 +349,7 @@ class WebRTCServer:
 
         logger.info("WebRTC server stopped")
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get server status."""
         return {
             "running": self.running,

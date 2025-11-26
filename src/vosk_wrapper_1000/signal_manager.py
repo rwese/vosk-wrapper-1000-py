@@ -10,12 +10,14 @@ class SignalManager:
     def __init__(self):
         self.running = True
         self.listening = False
+        self.reload_config = False
         self._setup_handlers()
 
     def _setup_handlers(self):
         """Setup signal handlers for daemon control."""
         signal.signal(signal.SIGUSR1, self._handle_start)
         signal.signal(signal.SIGUSR2, self._handle_stop)
+        signal.signal(signal.SIGHUP, self._handle_reload)
         signal.signal(signal.SIGINT, self._handle_terminate)
         signal.signal(signal.SIGTERM, self._handle_terminate)
 
@@ -28,6 +30,11 @@ class SignalManager:
         """Handle SIGUSR2 - stop listening."""
         print("Received SIGUSR2: Stopping listening...", file=sys.stderr)
         self.listening = False
+
+    def _handle_reload(self, sig, frame):
+        """Handle SIGHUP - reload configuration."""
+        print("Received SIGHUP: Reloading configuration...", file=sys.stderr)
+        self.reload_config = True
 
     def _handle_terminate(self, sig, frame):
         """Handle SIGINT/SIGTERM - terminate daemon."""
@@ -42,6 +49,14 @@ class SignalManager:
     def is_listening(self) -> bool:
         """Check if daemon should be listening."""
         return self.listening
+
+    def should_reload_config(self) -> bool:
+        """Check if configuration should be reloaded."""
+        return self.reload_config
+
+    def reset_reload_flag(self):
+        """Reset the configuration reload flag."""
+        self.reload_config = False
 
     def set_listening(self, listening: bool):
         """Set listening state."""

@@ -1,7 +1,6 @@
 """Audio processing utilities for vosk-wrapper-1000."""
 
 from collections import deque
-from typing import Deque, List, Optional
 
 import noisereduce as nr
 import numpy as np
@@ -36,14 +35,14 @@ class AudioProcessor:
         self.pre_roll_duration = pre_roll_duration
         self.vad_hysteresis_chunks = vad_hysteresis_chunks
         self.noise_reduction_min_rms_ratio = noise_reduction_min_rms_ratio
-        self.soxr_resampler: Optional[soxr.ResampleStream] = None
+        self.soxr_resampler: soxr.ResampleStream | None = None
 
         # Ring buffer for pre-roll audio (stores processed chunks before speech detection)
         # Buffer size: enough chunks to cover pre_roll_duration at model_rate
         # Estimate: pre_roll_duration * model_rate / avg_chunk_size
         # Using blocksize=1024, after resampling we get roughly (1024 * model_rate / device_rate) samples
         # To be safe, allocate based on number of chunks needed for pre_roll_duration
-        self.pre_roll_buffer: Deque[np.ndarray] = deque(
+        self.pre_roll_buffer: deque[np.ndarray] = deque(
             maxlen=200
         )  # Max 200 chunks in buffer (increased for longer pre-roll durations)
         self.pre_roll_samples = int(pre_roll_duration * model_rate)
@@ -302,7 +301,7 @@ class AudioProcessor:
 
         return buffered_audio
 
-    def process_with_vad(self, audio_data: np.ndarray) -> List[np.ndarray]:
+    def process_with_vad(self, audio_data: np.ndarray) -> list[np.ndarray]:
         """Process audio chunk with Voice Activity Detection and pre-roll buffering.
 
         This method implements a ring buffer that captures audio before speech begins,
@@ -417,7 +416,7 @@ class AudioProcessor:
 
     def process_webrtc_audio(
         self, audio_bytes: bytes, sample_rate: int, channels: int
-    ) -> List[np.ndarray]:
+    ) -> list[np.ndarray]:
         """Process audio from WebRTC stream.
 
         Args:

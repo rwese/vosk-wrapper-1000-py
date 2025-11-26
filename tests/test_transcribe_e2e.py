@@ -101,9 +101,9 @@ def test_transcribe_file_with_silence_threshold(ensure_test_model_downloaded):
         cwd=PROJECT_ROOT,
     )
 
-    assert (
-        result_default.returncode == 0
-    ), f"Default threshold failed: {result_default.stderr}"
+    assert result_default.returncode == 0, (
+        f"Default threshold failed: {result_default.stderr}"
+    )
 
     # Test with aggressive threshold (25.0)
     cmd_aggressive = [
@@ -125,9 +125,9 @@ def test_transcribe_file_with_silence_threshold(ensure_test_model_downloaded):
         cwd=PROJECT_ROOT,
     )
 
-    assert (
-        result_aggressive.returncode == 0
-    ), f"Aggressive threshold failed: {result_aggressive.stderr}"
+    assert result_aggressive.returncode == 0, (
+        f"Aggressive threshold failed: {result_aggressive.stderr}"
+    )
 
     # Both should produce output (transcripts go to stdout)
     assert result_default.stdout.strip(), "Default threshold produced no output"
@@ -155,9 +155,9 @@ def test_transcribe_file_with_silence_threshold(ensure_test_model_downloaded):
 
     assert result_high.returncode == 0, f"High threshold failed: {result_high.stderr}"
     # With very high threshold, transcript should be empty
-    assert (
-        "Total lines: 0" in result_high.stderr
-    ), "High threshold should skip all audio"
+    assert "Total lines: 0" in result_high.stderr, (
+        "High threshold should skip all audio"
+    )
 
 
 @pytest.mark.skipif(not TRANSCRIPT_AUDIO.exists(), reason="Test audio file not found")
@@ -204,9 +204,9 @@ def test_transcribe_file_with_noise_reduction(ensure_test_model_downloaded):
         cwd=PROJECT_ROOT,
     )
 
-    assert (
-        result_no_nr.returncode == 0
-    ), f"No noise reduction failed: {result_no_nr.stderr}"
+    assert result_no_nr.returncode == 0, (
+        f"No noise reduction failed: {result_no_nr.stderr}"
+    )
 
     # Both should produce output (transcripts go to stdout)
     assert result_nr.stdout.strip(), "Noise reduction enabled produced no output"
@@ -243,9 +243,9 @@ def test_transcribe_file_silence_threshold_variations(ensure_test_model_download
             cwd=PROJECT_ROOT,
         )
 
-        assert (
-            result.returncode == 0
-        ), f"Silence threshold {threshold} failed: {result.stderr}"
+        assert result.returncode == 0, (
+            f"Silence threshold {threshold} failed: {result.stderr}"
+        )
 
         # Extract transcript from stdout
         stdout_lines = [
@@ -303,9 +303,9 @@ def test_transcribe_file_vad_hysteresis_variations(ensure_test_model_downloaded)
             cwd=PROJECT_ROOT,
         )
 
-        assert (
-            result.returncode == 0
-        ), f"VAD hysteresis {hysteresis} failed: {result.stderr}"
+        assert result.returncode == 0, (
+            f"VAD hysteresis {hysteresis} failed: {result.stderr}"
+        )
 
         # Extract transcript from stdout
         stdout_lines = [
@@ -363,9 +363,9 @@ def test_transcribe_file_pre_roll_duration_variations(ensure_test_model_download
             cwd=PROJECT_ROOT,
         )
 
-        assert (
-            result.returncode == 0
-        ), f"Pre-roll duration {duration} failed: {result.stderr}"
+        assert result.returncode == 0, (
+            f"Pre-roll duration {duration} failed: {result.stderr}"
+        )
 
         # Extract transcript from stdout
         stdout_lines = [
@@ -423,9 +423,9 @@ def test_transcribe_file_noise_reduction_level_variations(ensure_test_model_down
             cwd=PROJECT_ROOT,
         )
 
-        assert (
-            result.returncode == 0
-        ), f"Noise reduction level {level} failed: {result.stderr}"
+        assert result.returncode == 0, (
+            f"Noise reduction level {level} failed: {result.stderr}"
+        )
 
         # Extract transcript from stdout
         stdout_lines = [
@@ -556,9 +556,9 @@ def test_transcribe_file_combined_anti_choppiness_config(
 
     # Check that the recorded audio file was created and has content
     assert record_file.exists(), "Anti-choppiness recorded audio file was not created"
-    assert (
-        record_file.stat().st_size > 0
-    ), "Anti-choppiness recorded audio file is empty"
+    assert record_file.stat().st_size > 0, (
+        "Anti-choppiness recorded audio file is empty"
+    )
 
 
 # Tests for transcript_test_2 (audio with background noise)
@@ -687,9 +687,9 @@ def test_transcribe_file_test2_with_noise_reduction(ensure_test_model_downloaded
         cwd=PROJECT_ROOT,
     )
 
-    assert (
-        result_no_nr.returncode == 0
-    ), f"No noise reduction failed: {result_no_nr.stderr}"
+    assert result_no_nr.returncode == 0, (
+        f"No noise reduction failed: {result_no_nr.stderr}"
+    )
 
     # Both should produce output
     assert actual_transcript, "Noise reduction enabled produced no output"
@@ -727,9 +727,9 @@ def test_transcribe_file_test2_aggressive_noise_reduction(ensure_test_model_down
         cwd=PROJECT_ROOT,
     )
 
-    assert (
-        result_aggressive.returncode == 0
-    ), f"Aggressive noise reduction failed: {result_aggressive.stderr}"
+    assert result_aggressive.returncode == 0, (
+        f"Aggressive noise reduction failed: {result_aggressive.stderr}"
+    )
 
     # Extract transcript
     stdout_lines = [

@@ -7,7 +7,8 @@ import json
 import logging
 import socket
 import time
-from typing import Any, Callable, Dict, List, Optional, cast
+from collections.abc import Callable
+from typing import Any, cast
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -68,7 +69,7 @@ class IPCClient:
         """
         self.socket_path = socket_path
         self.timeout = timeout
-        self.sock: Optional[socket.socket] = None
+        self.sock: socket.socket | None = None
         self.buffer = ""
         self._connected = False
 
@@ -108,9 +109,9 @@ class IPCClient:
     def send_command(
         self,
         command: str,
-        params: Optional[Dict] = None,
-        timeout: Optional[float] = None,
-    ) -> Dict[str, Any]:
+        params: dict | None = None,
+        timeout: float | None = None,
+    ) -> dict[str, Any]:
         """Send command to server and wait for response.
 
         Args:
@@ -152,9 +153,9 @@ class IPCClient:
                 error.get("message", "Unknown error"),
             )
 
-        return cast(Dict[str, Any], response.get("data", {}))
+        return cast(dict[str, Any], response.get("data", {}))
 
-    def subscribe(self, events: Optional[List[str]] = None):
+    def subscribe(self, events: list[str] | None = None):
         """Subscribe to event stream.
 
         Args:
@@ -181,7 +182,7 @@ class IPCClient:
         self.send_command("unsubscribe")
         logger.debug("Unsubscribed from events")
 
-    def stream_events(self, callback: Optional[Callable[[Dict], bool]] = None):
+    def stream_events(self, callback: Callable[[dict], bool] | None = None):
         """Stream events from server (blocking).
 
         Yields events indefinitely until connection closes or callback returns False.
@@ -230,7 +231,7 @@ class IPCClient:
             if self.sock:
                 self.sock.settimeout(self.timeout)
 
-    def _send_message(self, message: Dict[str, Any]):
+    def _send_message(self, message: dict[str, Any]):
         """Send JSON message to server.
 
         Args:
@@ -247,7 +248,7 @@ class IPCClient:
         except OSError as e:
             raise ConnectionError(f"Failed to send message: {e}") from e
 
-    def _read_message(self) -> Optional[Dict[str, Any]]:
+    def _read_message(self) -> dict[str, Any] | None:
         """Read one complete JSON message from server.
 
         Returns:
@@ -287,7 +288,7 @@ class IPCClient:
         except OSError as e:
             raise ConnectionError(f"Failed to read message: {e}") from e
 
-    def _wait_for_response(self, request_id: str, timeout: float) -> Dict[str, Any]:
+    def _wait_for_response(self, request_id: str, timeout: float) -> dict[str, Any]:
         """Wait for response message with matching ID.
 
         Args:

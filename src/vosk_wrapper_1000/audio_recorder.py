@@ -2,7 +2,6 @@
 
 import sys
 import wave
-from typing import Optional
 
 import numpy as np
 
@@ -13,7 +12,7 @@ class AudioRecorder:
     def __init__(self, filename: str, sample_rate: int):
         self.filename = filename
         self.sample_rate = sample_rate
-        self.file: Optional[wave.Wave_write] = None
+        self.file: wave.Wave_write | None = None
         self.is_recording = False
 
     def start_recording(self) -> bool:

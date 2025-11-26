@@ -19,7 +19,7 @@ from vosk_core.model_manager import ModelManager
 
 
 def transcribe_file(
-    audio_file: str, model_path: str = None, output_file: str = None
+    audio_file: str, model_path: str | None = None, output_file: str | None = None
 ) -> str:
     """
     Transcribe an audio file using Vosk.

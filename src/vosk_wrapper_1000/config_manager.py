@@ -9,7 +9,7 @@ import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import yaml
 
@@ -23,7 +23,7 @@ class AudioConfig:
     device: str = ""
     default_device: str = ""  # Default device name/ID, empty means system default
     blocksize: int = 8000
-    samplerate: Optional[int] = None
+    samplerate: int | None = None
     channels: int = 1
     dtype: str = "int16"
     noise_reduction: bool = True
@@ -43,7 +43,7 @@ class AudioConfig:
 class ModelConfig:
     """Model configuration settings."""
 
-    path: Optional[str] = None
+    path: str | None = None
     default_name: str = "vosk-model-small-en-us-0.15"
     auto_download: bool = False
 
@@ -54,7 +54,7 @@ class RecognitionConfig:
 
     words: bool = False
     partial_words: bool = False
-    grammar: Optional[str] = None
+    grammar: str | None = None
     max_alternatives: int = 1
 
 
@@ -63,7 +63,7 @@ class HooksConfig:
     """Hook configuration settings."""
 
     enabled: bool = True
-    directory: Optional[str] = None
+    directory: str | None = None
     timeout: int = 30
 
 
@@ -72,7 +72,7 @@ class LoggingConfig:
     """Logging configuration settings."""
 
     level: str = "INFO"
-    file: Optional[str] = None
+    file: str | None = None
     format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 
@@ -90,7 +90,7 @@ class ServiceConfig:
     """Service configuration settings."""
 
     instance_name: str = "default"
-    pid_directory: Optional[str] = None
+    pid_directory: str | None = None
     shutdown_timeout: int = 10
 
 
@@ -111,10 +111,10 @@ class WebRTCConfig:
     enabled: bool = False
     port: int = 8080
     host: str = "0.0.0.0"
-    stun_servers: List[str] = field(
+    stun_servers: list[str] = field(
         default_factory=lambda: ["stun:stun.l.google.com:19302"]
     )
-    turn_servers: List[str] = field(default_factory=list)
+    turn_servers: list[str] = field(default_factory=list)
     max_connections: int = 5
     audio_format: str = "opus"
     sample_rate: int = 48000
@@ -139,7 +139,7 @@ class Config:
 class ConfigManager:
     """Manages configuration loading and access."""
 
-    def __init__(self, config_file: Optional[Union[str, Path]] = None):
+    def __init__(self, config_file: str | Path | None = None):
         """Initialize configuration manager.
 
         Args:
@@ -147,11 +147,9 @@ class ConfigManager:
         """
         self.xdg_paths = XDGPaths()
         self.config_file = self._resolve_config_file(config_file)
-        self._config: Optional[Config] = None
+        self._config: Config | None = None
 
-    def _resolve_config_file(
-        self, config_file: Optional[Union[str, Path]]
-    ) -> Optional[Path]:
+    def _resolve_config_file(self, config_file: str | Path | None) -> Path | None:
         """Resolve configuration file path.
 
         Args:
@@ -194,9 +192,19 @@ class ConfigManager:
             print(f"✅ Configuration loaded from: {self.config_file}", file=sys.stderr)
         return self._config
 
+    def reload_config(self) -> Config:
+        """Force reload configuration from file and environment variables.
+
+        Returns:
+            Freshly loaded configuration object
+        """
+        self._config = self._load_config()
+        print(f"✅ Configuration reloaded from: {self.config_file}", file=sys.stderr)
+        return self._config
+
     def _load_config(self) -> Config:
         """Internal method to load configuration."""
-        config_data: Dict[str, Any] = {}
+        config_data: dict[str, Any] = {}
 
         # Load from file if available
         if self.config_file:
@@ -218,7 +226,7 @@ class ConfigManager:
 
         return config
 
-    def _create_config_from_dict(self, data: Dict[str, Any]) -> Config:
+    def _create_config_from_dict(self, data: dict[str, Any]) -> Config:
         """Create Config object from dictionary data."""
         return Config(
             audio=AudioConfig(**data.get("audio", {})),
@@ -301,9 +309,7 @@ class ConfigManager:
         if (webrtc_host := os.getenv("VOSK_WEBRTC_HOST")) is not None:
             config.webrtc.host = webrtc_host
 
-    def save_config(
-        self, config: Config, file_path: Optional[Union[str, Path]] = None
-    ) -> None:
+    def save_config(self, config: Config, file_path: str | Path | None = None) -> None:
         """Save configuration to file.
 
         Args:
@@ -391,16 +397,16 @@ class ConfigManager:
         with open(file_path, "w") as f:
             yaml.dump(config_dict, f, default_flow_style=False, indent=2)
 
-    def get_config_file_path(self) -> Optional[Path]:
+    def get_config_file_path(self) -> Path | None:
         """Get the path to the current configuration file."""
         return self.config_file
 
 
 # Global configuration manager instance
-_config_manager: Optional[ConfigManager] = None
+_config_manager: ConfigManager | None = None
 
 
-def get_config_manager(config_file: Optional[Union[str, Path]] = None) -> ConfigManager:
+def get_config_manager(config_file: str | Path | None = None) -> ConfigManager:
     """Get the global configuration manager instance.
 
     Args:
@@ -415,7 +421,7 @@ def get_config_manager(config_file: Optional[Union[str, Path]] = None) -> Config
     return _config_manager
 
 
-def load_config(config_file: Optional[Union[str, Path]] = None) -> Config:
+def load_config(config_file: str | Path | None = None) -> Config:
     """Load configuration using the global config manager.
 
     Args:

@@ -81,7 +81,7 @@ def main():
     print(f"\nDevice: {device_info['name']}")
     print(f"Sample rate: {sample_rate} Hz (device native)")
     print(f"Channels: {channels}")
-    print(f"Block size: {blocksize} frames ({blocksize/sample_rate:.2f}s)")
+    print(f"Block size: {blocksize} frames ({blocksize / sample_rate:.2f}s)")
     print()
 
     # Track audio statistics
@@ -170,9 +170,9 @@ def main():
     print(f"Chunks received: {chunk_count}")
     print(f"Frames received: {total_frames}")
     print(
-        f"Total data: {total_bytes / 1024:.1f} KB ({total_bytes / (1024*1024):.2f} MB)"
+        f"Total data: {total_bytes / 1024:.1f} KB ({total_bytes / (1024 * 1024):.2f} MB)"
     )
-    print(f"Average rate: {(total_bytes / elapsed) / (1024*1024):.2f} MB/s")
+    print(f"Average rate: {(total_bytes / elapsed) / (1024 * 1024):.2f} MB/s")
     print(f"Errors: {error_count}")
 
     if chunk_count > 0:

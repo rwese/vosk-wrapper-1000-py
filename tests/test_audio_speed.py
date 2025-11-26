@@ -22,7 +22,7 @@ def analyze_audio_file(filepath):
         print("WAV Header Information:")
         print(f"  Sample rate: {header_rate} Hz")
         print(f"  Channels:    {channels}")
-        print(f"  Sample width: {sampwidth} bytes ({sampwidth*8}-bit)")
+        print(f"  Sample width: {sampwidth} bytes ({sampwidth * 8}-bit)")
         print(f"  Frames:      {frames:,}")
         print(f"  Duration:    {header_duration:.2f} seconds (according to header)")
         print()
@@ -45,7 +45,7 @@ def analyze_audio_file(filepath):
                 )
             else:
                 print(
-                    f"(sounds {1/speed_factor:.2f}x TOO SLOW if header is {header_rate} Hz)"
+                    f"(sounds {1 / speed_factor:.2f}x TOO SLOW if header is {header_rate} Hz)"
                 )
 
         print()
@@ -58,11 +58,11 @@ def analyze_audio_file(filepath):
         if header_rate == 16000:
             print("Your header says 16000 Hz. If audio sounds too slow:")
             print("  → Actual data might be at 8000 Hz (would sound 2x too slow)")
-            print(f"  → Duration would actually be: {frames/8000:.2f} seconds")
+            print(f"  → Duration would actually be: {frames / 8000:.2f} seconds")
         elif header_rate == 8000:
             print("Your header says 8000 Hz. If audio sounds too fast:")
             print("  → Actual data might be at 16000 Hz (would sound 2x too fast)")
-            print(f"  → Duration would actually be: {frames/16000:.2f} seconds")
+            print(f"  → Duration would actually be: {frames / 16000:.2f} seconds")
 
 
 if __name__ == "__main__":

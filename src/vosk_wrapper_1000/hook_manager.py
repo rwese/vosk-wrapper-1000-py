@@ -5,7 +5,6 @@ import subprocess
 import sys
 import threading
 import time
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -208,7 +207,7 @@ class HookManager:
 
             return final_action
 
-    def wait_for_hooks(self, timeout: Optional[float] = None):
+    def wait_for_hooks(self, timeout: float | None = None):
         """
         Wait for all running hooks to complete.
 

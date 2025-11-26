@@ -2,7 +2,6 @@
 """Device management utilities for vosk-wrapper-1000."""
 
 import sys
-from typing import Dict, List, Optional, Tuple
 
 import sounddevice as sd
 
@@ -13,9 +12,9 @@ class DeviceManager:
     """Manages audio device detection and validation."""
 
     def __init__(self):
-        self.devices_cache: Optional[List[Dict]] = None
+        self.devices_cache: list[dict] | None = None
 
-    def refresh_devices(self) -> List[Dict]:
+    def refresh_devices(self) -> list[dict]:
         """Refresh list of available audio devices."""
         try:
             devices = sd.query_devices()
@@ -39,8 +38,15 @@ class DeviceManager:
             print(f"Error refreshing devices: {e}", file=sys.stderr)
             return []
 
-    def get_device_info(self, device_arg: Optional[str]) -> Optional[Dict]:
-        """Get device info by name or ID."""
+    def get_device_info(self, device_arg) -> dict | None:
+        """Get device info by name or ID.
+
+        Args:
+            device_arg: Device ID (int) or device name (str)
+
+        Returns:
+            Device info dict or None if not found
+        """
         if self.devices_cache is None:
             self.refresh_devices()
 
@@ -52,26 +58,24 @@ class DeviceManager:
         device_id = None
         try:
             device_id = int(device_arg)
-        except ValueError:
+        except (ValueError, TypeError):
             pass
 
+        # If we have a valid device ID, search by ID
         if device_id is not None and self.devices_cache:
             for device in self.devices_cache:
                 if device["id"] == device_id:
                     return device
-                # Also try partial name match for devices with spaces
-                if device_arg and device_arg.lower() in device["name"].lower():
-                    return device
-                    return device
 
-        # If not found by ID, try by name
-        if self.devices_cache:
+        # If not found by ID (or device_arg is a string), try by name
+        if self.devices_cache and isinstance(device_arg, str):
             for device in self.devices_cache:
                 if device_arg.lower() in device["name"].lower():
                     return device
+
         return None
 
-    def get_device_by_id(self, device_id: int) -> Optional[Dict]:
+    def get_device_by_id(self, device_id: int) -> dict | None:
         """Get device by ID."""
         if self.devices_cache is None:
             self.refresh_devices()
@@ -84,11 +88,11 @@ class DeviceManager:
 
     def validate_device_for_model(
         self, device_id: int, model_sample_rate: int
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """Validate device compatibility with model sample rate."""
         return validate_device_compatibility(device_id, model_sample_rate)
 
-    def test_device(self, device_id: int) -> Tuple[bool, str]:
+    def test_device(self, device_id: int) -> tuple[bool, str]:
         """Test if a device is working by creating a test stream.
 
         Args:

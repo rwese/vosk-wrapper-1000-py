@@ -252,13 +252,13 @@ If you prefer to develop locally or don't want to use uvx:
 2.  **Download a Model**
     ```bash
     # List all available models
-    uv run python -m vosk_wrapper_1000.download_model
+    uv run python -m vosk_core.download_model
 
     # Download a specific model
-    uv run python -m vosk_wrapper_1000.download_model vosk-model-small-en-us-0.15
+    uv run python -m vosk_core.download_model vosk-model-small-en-us-0.15
 
     # Delete a model
-    uv run python -m vosk_wrapper_1000.download_model --delete vosk-model-small-en-us-0.15
+    uv run python -m vosk_core.download_model --delete vosk-model-small-en-us-0.15
     ```
 
 3.  **Run the Application**

@@ -3,13 +3,13 @@
 import platform
 import subprocess
 import sys
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 
-def detect_audio_system() -> Dict[str, Any]:
+def detect_audio_system() -> dict[str, Any]:
     """Detect the audio system and related information."""
     system = platform.system()
-    audio_info: Dict[str, Any] = {
+    audio_info: dict[str, Any] = {
         "platform": system,
         "audio_system": "unknown",
         "audio_backend": "sounddevice",
@@ -26,9 +26,9 @@ def detect_audio_system() -> Dict[str, Any]:
     return audio_info
 
 
-def _detect_linux_audio() -> Dict[str, Any]:
+def _detect_linux_audio() -> dict[str, Any]:
     """Detect Linux audio system."""
-    audio_info: Dict[str, Any] = {"audio_system": "unknown", "details": {}}
+    audio_info: dict[str, Any] = {"audio_system": "unknown", "details": {}}
 
     # Check for PipeWire
     try:
@@ -37,9 +37,9 @@ def _detect_linux_audio() -> Dict[str, Any]:
         )
         if result.returncode == 0:
             audio_info["audio_system"] = "pipewire"
-            audio_info[
-                "audio_backend"
-            ] = "pipewire-python (preferred) / sounddevice (fallback)"
+            audio_info["audio_backend"] = (
+                "pipewire-python (preferred) / sounddevice (fallback)"
+            )
 
             # Get PipeWire version
             try:
@@ -47,9 +47,9 @@ def _detect_linux_audio() -> Dict[str, Any]:
                     ["pipewire", "--version"], capture_output=True, text=True, timeout=2
                 )
                 if pw_version.returncode == 0:
-                    audio_info["details"][
-                        "pipewire_version"
-                    ] = pw_version.stdout.strip()
+                    audio_info["details"]["pipewire_version"] = (
+                        pw_version.stdout.strip()
+                    )
             except Exception:
                 pass
 
@@ -61,9 +61,9 @@ def _detect_linux_audio() -> Dict[str, Any]:
                 audio_info["audio_backend"] = "pipewire-python"
             except ImportError:
                 audio_info["details"]["pipewire_python_available"] = False
-                audio_info["details"][
-                    "pipewire_python_install"
-                ] = "pip install pipewire-python"
+                audio_info["details"]["pipewire_python_install"] = (
+                    "pip install pipewire-python"
+                )
 
             return audio_info
     except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -87,9 +87,9 @@ def _detect_linux_audio() -> Dict[str, Any]:
                     timeout=2,
                 )
                 if pa_version.returncode == 0:
-                    audio_info["details"][
-                        "pulseaudio_version"
-                    ] = pa_version.stdout.strip()
+                    audio_info["details"]["pulseaudio_version"] = (
+                        pa_version.stdout.strip()
+                    )
             except Exception:
                 pass
 
@@ -115,9 +115,9 @@ def _detect_linux_audio() -> Dict[str, Any]:
     return audio_info
 
 
-def _detect_macos_audio() -> Dict[str, Any]:
+def _detect_macos_audio() -> dict[str, Any]:
     """Detect macOS audio system."""
-    audio_info: Dict[str, Any] = {
+    audio_info: dict[str, Any] = {
         "audio_system": "coreaudio",
         "audio_backend": "sounddevice (via CoreAudio)",
         "details": {},
@@ -152,9 +152,9 @@ def _detect_macos_audio() -> Dict[str, Any]:
     return audio_info
 
 
-def _detect_windows_audio() -> Dict[str, Any]:
+def _detect_windows_audio() -> dict[str, Any]:
     """Detect Windows audio system."""
-    audio_info: Dict[str, Any] = {
+    audio_info: dict[str, Any] = {
         "audio_system": "wasapi",
         "audio_backend": "sounddevice (via WASAPI)",
         "details": {},
@@ -213,7 +213,7 @@ def print_audio_system_info():
     print("-" * 40, file=sys.stderr)
 
 
-def get_audio_device_info() -> List[Dict[str, Any]]:
+def get_audio_device_info() -> list[dict[str, Any]]:
     """Get detailed information about available audio devices."""
     try:
         import sounddevice as sd
@@ -281,7 +281,7 @@ def print_device_list():
 
 def validate_device_compatibility(
     device_id: int, target_samplerate: int
-) -> Tuple[bool, str]:
+) -> tuple[bool, str]:
     """Validate if a device supports the target sample rate."""
     try:
         import sounddevice as sd

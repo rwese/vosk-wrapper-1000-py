@@ -3,7 +3,7 @@
 import platform
 import threading
 from abc import ABC, abstractmethod
-from typing import Callable, Optional
+from collections.abc import Callable
 
 
 class AudioBackend(ABC):
@@ -14,7 +14,7 @@ class AudioBackend(ABC):
         self,
         samplerate: int,
         blocksize: int,
-        device: Optional[int],
+        device: int | None,
         channels: int,
         callback: Callable,
     ) -> bool:
@@ -51,7 +51,7 @@ class SoundDeviceBackend(AudioBackend):
         self,
         samplerate: int,
         blocksize: int,
-        device: Optional[int],
+        device: int | None,
         channels: int,
         callback: Callable,
     ) -> bool:
@@ -121,7 +121,7 @@ class PipeWireBackend(AudioBackend):
         self,
         samplerate: int,
         blocksize: int,
-        device: Optional[int],
+        device: int | None,
         channels: int,
         callback: Callable,
     ) -> bool:
