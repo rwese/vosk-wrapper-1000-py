@@ -7,6 +7,7 @@ import threading
 from pathlib import Path
 
 import numpy as np
+import sounddevice as sd  # type: ignore
 import yaml
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, VerticalScroll
@@ -77,7 +78,7 @@ class AudioMonitor(Static):
     def update_rms(self, rms: float) -> None:
         """Update the compact status line with RMS and VAD info."""
         status_line = self.query_one("#status-line", Static)
-        current_text = status_line.renderable.plain
+        current_text = status_line.plain
         # Extract VAD part and update RMS part
         if " | VAD:" in current_text:
             vad_part = current_text.split(" | VAD:")[1]
@@ -90,7 +91,7 @@ class AudioMonitor(Static):
     ) -> None:
         """Update VAD status in the compact display."""
         status_line = self.query_one("#status-line", Static)
-        current_text = status_line.renderable.plain
+        current_text = status_line.plain
 
         if is_in_speech:
             vad_status = f"OPEN ✓ ({chunks_returned})"
@@ -177,7 +178,7 @@ class SettingsPanel(VerticalScroll):
             current_model = model_settings.get("path", "")
 
             # Create options for the select widget
-            options = [("None", None)]
+            options: list[tuple[str, str | None]] = [("None", None)]
             for model_name in available_models:
                 model_path = str(model_manager.models_dir / model_name)
                 options.append((model_name, model_path))
@@ -208,14 +209,14 @@ class SettingsPanel(VerticalScroll):
             current_device = audio_settings.get("default_device", "")
 
             # Create options for the select widget
-            options = [("System Default", "")]
+            device_options: list[tuple[str, str]] = [("System Default", "")]
             for device in available_devices:
                 device_label = f"{device['name']} (ID: {device['id']})"
                 device_value = str(device["id"])  # Store as string for Select widget
-                options.append((device_label, device_value))
+                device_options.append((device_label, device_value))
 
             yield Select(
-                options=options,
+                options=device_options,
                 value=current_device,
                 id="default_device",
                 classes="wide-input",
@@ -319,10 +320,11 @@ class SettingsTUI(App):
         self.sub_title = f"Config: {self.config_path}"
 
         # Audio monitoring state
-        self.audio_stream = None
-        self.monitor_thread = None
-        self.monitor_queue = queue.Queue()
+        self.audio_stream: sd.RawInputStream | None = None
+        self.monitor_thread: threading.Thread | None = None
+        self.monitor_queue: queue.Queue = queue.Queue()
         self.monitoring = False
+        self.audio_processor: AudioProcessor | None = None
 
         # Load settings
         self.settings = self._load_current_settings()
@@ -417,8 +419,6 @@ class SettingsTUI(App):
     def _start_monitoring(self) -> None:
         """Start real-time audio monitoring."""
         try:
-            import sounddevice as sd
-
             # Get current settings
             settings = self._collect_settings()
             audio_settings = settings["audio"]
@@ -450,16 +450,18 @@ class SettingsTUI(App):
 
             # Update button
             try:
-                btn = self.query_one("#monitor-btn", Button)
-                btn.label = "⏹️ Stop Monitor"
-                btn.variant = "error"
+                btn = self.query_one("#monitor-btn")
+                if isinstance(btn, Button):
+                    btn.label = "⏹️ Stop Monitor"
+                    btn.variant = "error"
             except Exception:
                 pass  # Button might not be mounted yet
 
             # Update monitor widget
             try:
-                monitor = self.query_one("#audio-monitor", AudioMonitor)
-                monitor.update_monitoring(True)
+                monitor = self.query_one("#audio-monitor")
+                if isinstance(monitor, AudioMonitor):
+                    monitor.update_monitoring(True)
             except Exception:
                 pass  # Monitor might not be mounted yet
 
@@ -511,11 +513,16 @@ class SettingsTUI(App):
                 audio_data = np.frombuffer(indata, dtype=np.int16)
 
                 # Use AudioProcessor VAD logic (same as daemon)
-                audio_chunks = self.audio_processor.process_with_vad(audio_data)
+                if self.audio_processor is not None:
+                    audio_chunks = self.audio_processor.process_with_vad(audio_data)
 
-                # Get current speech state
-                is_in_speech = self.audio_processor.in_speech
-                consecutive_silent = self.audio_processor.consecutive_silent_chunks
+                    # Get current speech state
+                    is_in_speech = self.audio_processor.in_speech
+                    consecutive_silent = self.audio_processor.consecutive_silent_chunks
+                else:
+                    audio_chunks = []
+                    is_in_speech = False
+                    consecutive_silent = 0
 
                 # Calculate RMS of raw audio for display
                 if len(audio_data.shape) > 1:
@@ -564,21 +571,23 @@ class SettingsTUI(App):
             self.audio_stream = None
 
         # Reset VAD state for next monitoring session
-        if hasattr(self, "audio_processor"):
+        if self.audio_processor is not None:
             self.audio_processor.reset_vad_state()
 
         # Update button
         try:
-            btn = self.query_one("#monitor-btn", Button)
-            btn.label = "🎙️ Start Monitor"
-            btn.variant = "success"
+            btn = self.query_one("#monitor-btn")
+            if isinstance(btn, Button):
+                btn.label = "🎙️ Start Monitor"
+                btn.variant = "success"
         except Exception:
             pass  # Button might not be mounted
 
         # Update monitor widget
         try:
-            monitor = self.query_one("#audio-monitor", AudioMonitor)
-            monitor.update_monitoring(False)
+            monitor = self.query_one("#audio-monitor")
+            if isinstance(monitor, AudioMonitor):
+                monitor.update_monitoring(False)
         except Exception:
             pass  # Monitor might not be mounted
 
@@ -610,9 +619,9 @@ class SettingsTUI(App):
             except Exception:
                 break
 
-    def _collect_settings(self) -> dict:
+    def _collect_settings(self) -> dict[str, dict]:
         """Collect current settings from UI inputs."""
-        settings = {"audio": {}, "model": {}}
+        settings: dict[str, dict] = {"audio": {}, "model": {}}
 
         # Collect checkbox values
         for field_id in [
@@ -640,9 +649,14 @@ class SettingsTUI(App):
 
         for field_id, converter in numeric_fields.items():
             try:
-                widget = self.query_one(f"#{field_id}", Input)
-                value = converter(widget.value)
-                settings["audio"][field_id] = value
+                widget = self.query_one(f"#{field_id}")
+                if isinstance(widget, Input):
+                    value = converter(widget.value)
+                    settings["audio"][field_id] = value
+                else:
+                    # Keep existing value if widget type is wrong
+                    if field_id in self.settings["audio"]:
+                        settings["audio"][field_id] = self.settings["audio"][field_id]
             except (ValueError, Exception):
                 # Keep existing value if parsing fails
                 if field_id in self.settings["audio"]:
@@ -672,13 +686,13 @@ class SettingsTUI(App):
 
         return settings
 
-    def _save_to_file(self, settings: dict) -> None:
+    def _save_to_file(self, settings: dict[str, dict]) -> None:
         """Save settings to YAML config file."""
         # Ensure directory exists
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Load existing config if it exists
-        existing_config = {}
+        existing_config: dict = {}
         if self.config_path.exists():
             with open(self.config_path) as f:
                 existing_config = yaml.safe_load(f) or {}
@@ -705,6 +719,9 @@ class SettingsTUI(App):
             "white": "information",
         }
         severity = severity_map.get(color, "information")
+
+        # Type assertion for mypy
+        severity = severity  # type: ignore
 
         # Clean up emoji and extra formatting for toast
         clean_message = (

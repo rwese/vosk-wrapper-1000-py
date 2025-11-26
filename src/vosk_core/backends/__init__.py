@@ -9,11 +9,3 @@ try:
     __all__ = ["FasterWhisperBackend", "VoskBackend"]
 except ImportError:
     __all__ = ["VoskBackend"]
-
-try:
-    from .whisper_backend import WhisperBackend
-
-    if "WhisperBackend" not in __all__:
-        __all__.append("WhisperBackend")
-except ImportError:
-    pass

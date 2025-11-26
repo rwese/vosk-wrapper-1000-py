@@ -1,6 +1,8 @@
 # Systemd User Service Setup
 
-This guide explains how to set up vosk-wrapper-1000 as a systemd user service on Linux, allowing it to run automatically in the background and start on login.
+This guide explains how to set up vosk-wrapper-1000 as a systemd user service
+on Linux, allowing it to run automatically in the background and start on
+login.
 
 ## Quick Start
 
@@ -69,7 +71,8 @@ mkdir -p ~/.config/systemd/user
 cp systemd/vosk-wrapper-1000-default.service ~/.config/systemd/user/
 
 # Or for named instances, copy and edit the template
-cp systemd/vosk-wrapper-1000@.service ~/.config/systemd/user/vosk-wrapper-1000@my-instance.service
+cp systemd/vosk-wrapper-1000@.service \
+~/.config/systemd/user/vosk-wrapper-1000@my-instance.service
 
 # Reload systemd
 systemctl --user daemon-reload
@@ -142,10 +145,12 @@ journalctl --user -u vosk-wrapper-1000-default.service -n 50
 journalctl --user -u vosk-wrapper-1000-default.service --since yesterday
 
 # Since specific time
-journalctl --user -u vosk-wrapper-1000-default.service --since "2025-11-25 10:00:00"
+journalctl --user -u vosk-wrapper-1000-default.service \
+--since "2025-11-25 10:00:00"
 
 # Between time ranges
-journalctl --user -u vosk-wrapper-1000-default.service --since "2025-11-25 10:00" --until "2025-11-25 11:00"
+journalctl --user -u vosk-wrapper-1000-default.service \
+--since "2025-11-25 10:00" --until "2025-11-25 11:00"
 ```
 
 ### Log Filtering
@@ -184,7 +189,8 @@ journalctl --user -u vosk-wrapper-1000-english.service -f
 
 ### Customizing Service File
 
-If you need custom settings (different model, device, etc.), edit the service file:
+If you need custom settings (different model, device, etc.), edit the
+service file:
 
 ```bash
 # Edit service file
@@ -213,7 +219,8 @@ Add environment variables to the service:
 Environment="VOSK_LOG_LEVEL=INFO"
 Environment="VOSK_IPC_ENABLED=true"
 Environment="VOSK_WEBRTC_ENABLED=true"
-ExecStart=/home/user/.local/bin/vosk-wrapper-1000 daemon --name default --foreground
+ExecStart=/home/user/.local/bin/vosk-wrapper-1000 daemon \
+--name default --foreground
 ```
 
 ### Resource Limits
@@ -226,7 +233,8 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=%h/.local/share/vosk-wrapper-1000 %h/.config/vosk-wrapper-1000 %h/.cache/vosk-wrapper-1000
+ReadWritePaths=%h/.local/share/vosk-wrapper-1000 %h/.config/vosk-wrapper-1000
+%h/.cache/vosk-wrapper-1000
 
 # Resource limits
 MemoryMax=8G
@@ -290,7 +298,8 @@ If you see `A process of this unit has been killed by the OOM killer`:
    systemctl --user status vosk-wrapper-1000-default.service
 
    # Monitor memory in real-time
-   watch -n 1 'systemctl --user show vosk-wrapper-1000-default.service -p MemoryCurrent'
+    watch -n 1 'systemctl --user show vosk-wrapper-1000-default.service \
+    -p MemoryCurrent'
    ```
 
 5. **Enable swap if you have limited RAM:**
@@ -322,7 +331,9 @@ If you see `A process of this unit has been killed by the OOM killer`:
 - **Medium models** (vosk-model-en-us-0.22): 2GB - 3GB RAM
 - **Large models** (gigaspeech): 6GB - 10GB RAM
 
-**Default Configuration:** The service now ships with MemoryMax **disabled** (commented out) to avoid OOM issues. Enable it only if you want to limit resource usage.
+**Default Configuration:** The service now ships with MemoryMax **disabled**
+(commented out) to avoid OOM issues. Enable it only if you want to limit
+resource usage.
 
 ### Service Won't Start
 
@@ -491,7 +502,8 @@ sudo dnf install libnotify      # Fedora
 # Create notification script
 cat > ~/.local/bin/vosk-failure-notify.sh <<'EOF'
 #!/bin/bash
-notify-send "Vosk Wrapper Failed" "The vosk-wrapper-1000 service has failed" --urgency=critical
+notify-send "Vosk Wrapper Failed" \
+"The vosk-wrapper-1000 service has failed" --urgency=critical
 EOF
 chmod +x ~/.local/bin/vosk-failure-notify.sh
 
@@ -509,7 +521,8 @@ Monitor resource usage:
 systemd-cgtop --user
 
 # Monitor specific service
-systemctl --user show vosk-wrapper-1000-default.service -p CPUUsageNSec,MemoryCurrent
+systemctl --user show vosk-wrapper-1000-default.service \
+-p CPUUsageNSec,MemoryCurrent
 ```
 
 ## See Also
@@ -517,4 +530,5 @@ systemctl --user show vosk-wrapper-1000-default.service -p CPUUsageNSec,MemoryCu
 - [Main README](../README.md) - General vosk-wrapper-1000 documentation
 - [Configuration Guide](CONFIGURATION.md) - Configuration options
 - [IPC Documentation](IPC.md) - Inter-process communication
-- [Systemd Documentation](https://www.freedesktop.org/software/systemd/man/systemd.service.html)
+- [Systemd Documentation]
+(https://www.freedesktop.org/software/systemd/man/systemd.service.html)

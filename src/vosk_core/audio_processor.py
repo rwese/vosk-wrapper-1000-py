@@ -78,7 +78,7 @@ class AudioProcessor:
         audio_float = audio_float - np.mean(audio_float)
         rms = np.sqrt(np.mean(audio_float**2))
 
-        return rms > self.silence_threshold
+        return float(rms) > self.silence_threshold
 
     def normalize_audio_chunk(self, audio_data: np.ndarray) -> np.ndarray:
         """Normalize audio to target RMS level.
@@ -124,7 +124,10 @@ class AudioProcessor:
         normalized = audio_float * gain
 
         # Convert back to int16 with clipping (use 32768.0 for symmetric scaling)
-        return np.clip(normalized * 32768.0, -32768, 32767).astype(np.int16)
+        result: np.ndarray = np.clip(normalized * 32768.0, -32768, 32767).astype(
+            np.int16
+        )
+        return result
 
     def process_audio_chunk(self, audio_data: np.ndarray) -> np.ndarray:
         """Process a chunk of audio data with noise filtering and resampling.
@@ -263,9 +266,10 @@ class AudioProcessor:
             final_chunk = self.soxr_resampler.resample_chunk(
                 np.array([], dtype=np.float32).reshape(-1, 1), last=True
             )
-            return (
+            result: np.ndarray = (
                 np.clip(final_chunk * 32768.0, -32768, 32767).astype(np.int16).flatten()
             )
+            return result
         return np.array([], dtype=np.int16)
 
     def get_pre_roll_audio(self) -> np.ndarray:
@@ -299,7 +303,7 @@ class AudioProcessor:
         if len(buffered_audio) > self.pre_roll_samples:
             buffered_audio = buffered_audio[-self.pre_roll_samples :]
 
-        return buffered_audio
+        return buffered_audio  # type: ignore
 
     def process_with_vad(self, audio_data: np.ndarray) -> list[np.ndarray]:
         """Process audio chunk with Voice Activity Detection and pre-roll buffering.

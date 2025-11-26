@@ -146,8 +146,8 @@ class AudioMonitorApp(textual.App):
     ]
 
     is_recording = reactive(False)
-    audio_data: np.ndarray | None = reactive(None)
-    current_file: Path | None = reactive(None)
+    audio_data = reactive(None)
+    current_file = reactive(None)
 
     def __init__(self):
         super().__init__()
@@ -269,12 +269,11 @@ class AudioMonitorApp(textual.App):
                 self.stop_recording()
             elif button_id == "playback-btn":
                 # Check if audio data exists and has content
-                has_data = (
+                if (
                     self.audio_data is not None
                     and isinstance(self.audio_data, np.ndarray)
                     and self.audio_data.size > 0
-                )
-                if has_data:
+                ):
                     self.play_audio()
                 else:
                     msg = "No audio data to play back"
@@ -282,12 +281,11 @@ class AudioMonitorApp(textual.App):
                     self.query_one("#status", widgets.Static).update(msg)
             elif button_id == "save-btn":
                 # Check if audio data exists and has content
-                has_data = (
+                if (
                     self.audio_data is not None
                     and isinstance(self.audio_data, np.ndarray)
                     and self.audio_data.size > 0
-                )
-                if has_data:
+                ):
                     self.save_audio()
                 else:
                     msg = "No audio data to save"
@@ -333,9 +331,15 @@ class AudioMonitorApp(textual.App):
                 self.query_one("#status", widgets.Static).update(f"Error: {error_msg}")
                 return
 
+            if device_select_value is None:
+                raise ValueError("No device selected")
             device_id = int(device_select_value)
-            sample_rate = int(self.query_one("#sample-rate-input", widgets.Input).value)
-            channels = int(self.query_one("#channels-select", widgets.Select).value)
+            sample_rate_input = self.query_one("#sample-rate-input", widgets.Input)
+            channels_select = self.query_one("#channels-select", widgets.Select)
+            if channels_select.value is None:
+                raise ValueError("No channels selected")
+            sample_rate = int(sample_rate_input.value)
+            channels = int(channels_select.value)
             buffer_size = int(self.query_one("#buffer-size-input", widgets.Input).value)
 
             logger.info(
@@ -405,9 +409,12 @@ class AudioMonitorApp(textual.App):
                     raw_int16 = (raw_mono * 32767).astype(np.int16)
 
                     # Process through audio processor
-                    processed_chunks = self.audio_processor.process_with_vad(
-                        raw_int16.reshape(-1, 1)
-                    )
+                    if self.audio_processor is not None:
+                        processed_chunks = self.audio_processor.process_with_vad(
+                            raw_int16.reshape(-1, 1)
+                        )
+                    else:
+                        processed_chunks = []
 
                     # Collect processed audio
                     for processed_chunk in processed_chunks:
@@ -526,10 +533,7 @@ class AudioMonitorApp(textual.App):
                 if status:
                     logger.warning(f"Playback callback status: {status}")
 
-                if hasattr(self, "_playback_pos"):
-                    pos = self._playback_pos
-                else:
-                    pos = 0
+                pos = getattr(self, "_playback_pos", 0)
 
                 remaining = len(audio_to_play) - pos
                 if remaining <= 0:
@@ -595,11 +599,11 @@ class AudioMonitorApp(textual.App):
         logger.info("Saving audio")
         try:
             # Check if audio data exists and is not empty
-            has_data = self.audio_data is not None and (
-                isinstance(self.audio_data, np.ndarray) and self.audio_data.size > 0
-            )
-
-            if not has_data:
+            if not (
+                self.audio_data is not None
+                and isinstance(self.audio_data, np.ndarray)
+                and self.audio_data.size > 0
+            ):
                 msg = "No audio data to save"
                 logger.warning(msg)
                 self.query_one("#status", widgets.Static).update(msg)

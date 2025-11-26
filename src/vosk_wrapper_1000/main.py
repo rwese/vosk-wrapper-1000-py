@@ -11,7 +11,6 @@ import sys
 import time
 from uuid import uuid4
 
-# Import local modules
 from vosk_core.audio_processor import AudioProcessor
 from vosk_core.model_manager import ModelManager
 from vosk_core.xdg_paths import get_hooks_dir
@@ -31,7 +30,7 @@ try:
     WEBRTC_AVAILABLE = True
 except ImportError:
     WEBRTC_AVAILABLE = False
-    WebRTCServer = None
+    WebRTCServer = None  # type: ignore
 
 # Set up module logger
 logger = logging.getLogger(__name__)
@@ -630,7 +629,7 @@ def run_service(args):
     if webrtc_config is not None:
         try:
             # Placeholder for audio queue to be used by WebRTC callback
-            webrtc_audio_queue: queue.Queue[tuple] = queue.Queue()
+            webrtc_audio_queue: queue.Queue = queue.Queue()
 
             # Create WebRTC audio callback that integrates with existing audio processing
             def webrtc_audio_callback(audio_bytes, sample_rate, channels, peer_id):

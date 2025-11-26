@@ -2,14 +2,20 @@
 
 ## Summary
 
-The IPC (Inter-Process Communication) system wasn't accessible when running vosk-wrapper-1000 as a systemd service due to the `PrivateTmp=true` security setting.
+The IPC (Inter-Process Communication) system wasn't accessible when running
+vosk-wrapper-1000 as a systemd service due to the `PrivateTmp=true` security
+setting.
 
 ## The Problem
 
-1. **Systemd Security**: The service used `PrivateTmp=true` which creates a private `/tmp` directory
-2. **Socket Isolation**: IPC sockets created in the service's private `/tmp` weren't accessible from outside
-3. **Hidden Logging**: Default log level was `ERROR`, hiding INFO messages about IPC startup
-4. **Default Path**: IPC client defaulted to `/tmp/vosk-wrapper-{instance_name}.sock`
+1. **Systemd Security**: The service used `PrivateTmp=true` which creates a
+private `/tmp` directory
+2. **Socket Isolation**: IPC sockets created in the service's private `/tmp`
+weren't accessible from outside
+3. **Hidden Logging**: Default log level was `ERROR`, hiding INFO messages
+about IPC startup
+4. **Default Path**: IPC client defaulted to
+`/tmp/vosk-wrapper-{instance_name}.sock`
 
 ## The Solution
 
@@ -29,7 +35,8 @@ Why:
 Added `/run/user/%U` to `ReadWritePaths`:
 
 ```ini
-ReadWritePaths=%h/.local/share/vosk-wrapper-1000 %h/.config/vosk-wrapper-1000 %h/.cache/vosk-wrapper-1000 /run/user/%U
+ReadWritePaths=%h/.local/share/vosk-wrapper-1000 %h/.config/vosk-wrapper-1000
+%h/.cache/vosk-wrapper-1000 /run/user/%U
 ```
 
 ### 3. Smart Socket Path Resolution
@@ -91,7 +98,8 @@ For existing installations:
 ./scripts/enable-ipc.sh
 
 # 2. Update socket path
-sed -i 's|/tmp/vosk-wrapper-|/run/user/1000/vosk-wrapper-|' ~/.config/vosk-wrapper-1000/config.yaml
+sed -i 's|/tmp/vosk-wrapper-|/run/user/1000/vosk-wrapper-|' \
+~/.config/vosk-wrapper-1000/config.yaml
 
 # 3. Reinstall service
 ./scripts/setup-systemd-service.sh --uninstall
@@ -113,9 +121,11 @@ The system resolves socket paths in this order:
      socket_path: "/run/user/1000/vosk-wrapper-{instance_name}.sock"
    ```
 
-2. **Runtime directory** (if writable): `/run/user/$(id -u)/vosk-wrapper-{instance_name}.sock`
+2. **Runtime directory** (if writable):
+`/run/user/$(id -u)/vosk-wrapper-{instance_name}.sock`
 
-3. **Fallback**: `/tmp/vosk-wrapper-{instance_name}.sock` (for non-systemd systems)
+3. **Fallback**: `/tmp/vosk-wrapper-{instance_name}.sock` (for non-systemd
+systems)
 
 ### Systemd Integration
 
@@ -129,7 +139,8 @@ ProtectSystem=strict
 ProtectHome=read-only
 
 # Allow access to runtime directory
-ReadWritePaths=%h/.local/share/vosk-wrapper-1000 %h/.config/vosk-wrapper-1000 %h/.cache/vosk-wrapper-1000 /run/user/%U
+ReadWritePaths=%h/.local/share/vosk-wrapper-1000 %h/.config/vosk-wrapper-1000
+%h/.cache/vosk-wrapper-1000 /run/user/%U
 ```
 
 ### Log Level Configuration
@@ -156,7 +167,8 @@ sleep 30
 ls -la /run/user/$(id -u)/vosk-wrapper-*.sock
 
 # Should show:
-# srwxr-xr-x. 1 user user 0 Nov 25 17:15 /run/user/1000/vosk-wrapper-default.sock
+# srwxr-xr-x. 1 user user 0 Nov 25 17:15
+# /run/user/1000/vosk-wrapper-default.sock
 ```
 
 ### Test IPC Commands
@@ -210,7 +222,8 @@ ls -ld /run/user/$(id -u)
 grep socket_path ~/.config/vosk-wrapper-1000/config.yaml
 
 # Update if needed
-sed -i 's|/tmp/vosk-wrapper-|/run/user/1000/vosk-wrapper-|' ~/.config/vosk-wrapper-1000/config.yaml
+sed -i 's|/tmp/vosk-wrapper-|/run/user/1000/vosk-wrapper-|' \
+~/.config/vosk-wrapper-1000/config.yaml
 
 # Restart service
 systemctl --user restart vosk-wrapper-1000-default.service

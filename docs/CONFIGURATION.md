@@ -124,9 +124,43 @@ recognition:
   max_alternatives: 1
 ```
 
+### Backend Settings
+
+```yaml
+# Backend selection
+backend:
+  # Backend type: vosk, faster-whisper, whisper
+  type: vosk
+
+# Vosk-specific options
+vosk_options:
+  words: false
+  partial_words: false
+  grammar: null
+  max_alternatives: 1
+
+# FasterWhisper-specific options
+faster_whisper_options:
+  device: cpu           # cpu, cuda, or auto
+  compute_type: int8    # int8, int16, float16, float32
+  beam_size: 5
+  language: null        # Language code (e.g., 'en') or null for auto-detect
+  vad_filter: true      # Enable VAD filtering
+
+# Whisper-specific options
+whisper_options:
+  device: cpu           # cpu or cuda
+  language: null        # Language code or null for auto-detect
+  temperature: 0.0      # Sampling temperature
+  fp16: false           # Use FP16 (auto-enabled for CUDA)
+```
+
 ## Environment Variables
 
 Configuration can also be set via environment variables (takes precedence over config files):
+
+### Backend
+- `VOSK_BACKEND` - Override backend type (vosk, faster-whisper, whisper)
 
 ### Model
 - `VOSK_MODEL_PATH` - Override default model path

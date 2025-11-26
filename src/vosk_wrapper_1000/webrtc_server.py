@@ -34,7 +34,7 @@ class AudioSink:
         self.track = track
         self.audio_callback = audio_callback
         self.peer_id = peer_id
-        self.task = None
+        self.task: asyncio.Task | None = None
 
     async def start(self):
         """Start receiving audio frames."""

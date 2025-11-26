@@ -1,10 +1,12 @@
 # Audio Processing Pipeline
 
-This document describes the complete audio pre-processing pipeline in vosk-wrapper-1000, from raw microphone input to speech recognition.
+This document describes the complete audio pre-processing pipeline in
+vosk-wrapper-1000, from raw microphone input to speech recognition.
 
 ## Overview
 
-The audio processing system implements a sophisticated multi-stage pipeline that:
+The audio processing system implements a sophisticated multi-stage pipeline
+that:
 - Handles any device sample rate and converts to model requirements
 - Filters out noise while preserving speech quality
 - Detects voice activity to avoid processing silence
@@ -14,107 +16,109 @@ The audio processing system implements a sophisticated multi-stage pipeline that
 ## Complete Processing Flow
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          AUDIO PROCESSING PIPELINE                          │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                     AUDIO PROCESSING PIPELINE                       │
+└─────────────────────────────────────────────────────────────────────┘
 
 1. AUDIO INPUT (from sounddevice)
-   └─> Raw audio chunks at device native rate (e.g., 48kHz)
-       Format: int16, mono/stereo, 1024 samples per chunk
-       Location: main.py:628-671 (audio_callback)
+    └─> Raw audio chunks at device native rate (e.g., 48kHz)
+        Format: int16, mono/stereo, 1024 samples per chunk
+        Location: main.py:628-671 (audio_callback)
 
 2. MONO CONVERSION (if needed)
-   └─> Convert stereo to mono by averaging channels
-       Location: main.py:394-398
+    └─> Convert stereo to mono by averaging channels
+        Location: main.py:394-398
 
 3. PRE-PROCESSING STAGE (AudioProcessor.process_with_vad)
-   │   Location: audio_processor.py:304-387
-   │
-   ├─> 3a. AUDIO PROCESSING (_process_mono_audio_chunk)
-   │   │   Location: audio_processor.py:178-257
-   │   │
-   │   ├─> [Optional] NORMALIZATION (normalize_audio_chunk)
-   │   │   └─> Adjusts audio levels to target RMS
-   │   │       - Removes DC offset
-   │   │       - Calculates current RMS
-   │   │       - Applies gain to reach target level (default: 0.3)
-   │   │       - Limits max gain to 50x to prevent over-amplification
-   │   │       Location: audio_processor.py:83-127
-   │   │
-   │   ├─> [Optional] NOISE REDUCTION
-   │   │   └─> Filters out background noise while preserving speech
-   │   │       - Uses noisereduce library
-   │   │       - Stationary (fast) or non-stationary (adaptive) mode
-   │   │       - Strength configurable (0.0-1.0, default: 0.05)
-   │   │       - Validates reduction didn't remove too much signal (min RMS ratio: 0.5)
-   │   │       - Reverts to original if over-aggressive
-   │   │       Location: audio_processor.py:196-240
-   │   │
-   │   └─> [Optional] RESAMPLING
-   │       └─> Converts from device rate to model rate
-   │           - Uses soxr HQ streaming resampler
-   │           - High-quality algorithm with proper chunking
-   │           - Example: 48kHz device → 16kHz model
-   │           Location: audio_processor.py:242-255
-   │
-   └─> 3b. VOICE ACTIVITY DETECTION (VAD)
-       │   Location: audio_processor.py:329-387
-       │
-       ├─> SILENCE DETECTION (has_audio)
-       │   └─> Checks if audio contains meaningful sound
-       │       - Calculates RMS energy after removing DC offset
-       │       - Compares to silence threshold (default: 50.0)
-       │       - Performed on PROCESSED audio (after noise reduction)
-       │       Location: audio_processor.py:63-81
-       │
-       ├─> PRE-ROLL BUFFERING
-       │   └─> Ring buffer for audio before speech detection
-       │       - Stores unprocessed audio chunks
-       │       - Configurable duration (default: 2.0 seconds)
-       │       - Processes and flushes when speech detected
-       │       - Prevents cutting off word beginnings
-       │       Location: audio_processor.py:40-48, 271-302
-       │
-       └─> STATE MACHINE
-           ├─> SILENCE → SPEECH transition
-           │   - Flush pre-roll buffer (process all buffered chunks)
-           │   - Return pre-roll audio + current chunk
-           │   - Set in_speech = True
-           │
-           ├─> SPEECH continuation
-           │   - Return current chunk
-           │   - Reset consecutive_silent_chunks counter
-           │
-           ├─> SPEECH with silence (hysteresis)
-           │   - Allow N silent chunks (default: 10)
-           │   - Continue sending chunks during hysteresis
-           │   - Natural pauses in speech don't end detection
-           │
-           └─> SPEECH → SILENCE transition
-               - After hysteresis_chunks consecutive silence
-               - Set in_speech = False, speech_just_ended = True
-               - Clear pre-roll buffer
-               - Return empty list (no chunks)
+    │   Location: audio_processor.py:304-387
+    │
+    ├─> 3a. AUDIO PROCESSING (_process_mono_audio_chunk)
+    │   │   Location: audio_processor.py:178-257
+    │   │
+    │   ├─> [Optional] NORMALIZATION (normalize_audio_chunk)
+    │   │   └─> Adjusts audio levels to target RMS
+    │   │       - Removes DC offset
+    │   │       - Calculates current RMS
+    │   │       - Applies gain to reach target level (default: 0.3)
+    │   │       - Limits max gain to 50x to prevent over-amplification
+    │   │       Location: audio_processor.py:83-127
+    │   │
+    │   ├─> [Optional] NOISE REDUCTION
+    │   │   └─> Filters out background noise while preserving speech
+    │   │       - Uses noisereduce library
+    │   │       - Stationary (fast) or non-stationary (adaptive) mode
+    │   │       - Strength configurable (0.0-1.0, default: 0.05)
+    │   │       - Validates reduction didn't remove too much signal
+    │   │         (min RMS ratio: 0.5)
+    │   │       - Reverts to original if over-aggressive
+    │   │       Location: audio_processor.py:196-240
+    │   │
+    │   └─> [Optional] RESAMPLING
+    │       └─> Converts from device rate to model rate
+    │           - Uses soxr HQ streaming resampler
+    │           - High-quality algorithm with proper chunking
+    │           - Example: 48kHz device → 16kHz model
+    │           Location: audio_processor.py:242-255
+    │
+    └─> 3b. VOICE ACTIVITY DETECTION (VAD)
+        │   Location: audio_processor.py:329-387
+        │
+        ├─> SILENCE DETECTION (has_audio)
+        │   └─> Checks if audio contains meaningful sound
+        │       - Calculates RMS energy after removing DC offset
+        │       - Compares to silence threshold (default: 50.0)
+        │       - Performed on PROCESSED audio (after noise reduction)
+        │       Location: audio_processor.py:63-81
+        │
+        ├─> PRE-ROLL BUFFERING
+        │   └─> Ring buffer for audio before speech detection
+        │       - Stores unprocessed audio chunks
+        │       - Configurable duration (default: 2.0 seconds)
+        │       - Processes and flushes when speech detected
+        │       - Prevents cutting off word beginnings
+        │       Location: audio_processor.py:40-48, 271-302
+        │
+        └─> STATE MACHINE
+            ├─> SILENCE → SPEECH transition
+            │   - Flush pre-roll buffer (process all buffered chunks)
+            │   - Return pre-roll audio + current chunk
+            │   - Set in_speech = True
+            │
+            ├─> SPEECH continuation
+            │   - Return current chunk
+            │   - Reset consecutive_silent_chunks counter
+            │
+            ├─> SPEECH with silence (hysteresis)
+            │   - Allow N silent chunks (default: 10)
+            │   - Continue sending chunks during hysteresis
+            │   - Natural pauses in speech don't end detection
+            │
+            └─> SPEECH → SILENCE transition
+                - After hysteresis_chunks consecutive silence
+                - Set in_speech = False, speech_just_ended = True
+                - Clear pre-roll buffer
+                - Return empty list (no chunks)
 
 4. QUEUE FOR VOSK
-   └─> Processed chunks added to thread-safe queue
-       - Non-blocking put_nowait (drops if queue full)
-       - Special SPEECH_END_MARKER when speech ends
-       Location: main.py:664, 653
+    └─> Processed chunks added to thread-safe queue
+        - Non-blocking put_nowait (drops if queue full)
+        - Special SPEECH_END_MARKER when speech ends
+        Location: main.py:664, 653
 
 5. VOSK RECOGNITION
-   └─> Main loop consumes queue and feeds to recognizer
-       - AcceptWaveform processes audio
-       - Partial results during speech
-       - Final result when speech ends or waveform completes
-       Location: main.py:897-1022
+    └─> Main loop consumes queue and feeds to recognizer
+        - AcceptWaveform processes audio
+        - Partial results during speech
+        - Final result when speech ends or waveform completes
+        Location: main.py:897-1022
 ```
 
 ## Processing Steps in Detail
 
 ### 1. Audio Input
 
-Audio is captured by the `sounddevice` library (PortAudio wrapper) at the device's native sample rate:
+Audio is captured by the `sounddevice` library (PortAudio wrapper) at the
+device's native sample rate:
 
 ```python
 # Create audio stream at device native rate
@@ -172,7 +176,8 @@ WITHOUT normalization:
   Raw audio RMS=30 → Silence check → BELOW threshold → Not detected ✗
 
 WITH normalization (target=0.3 ≈ RMS 9830):
-  Raw audio RMS=30 → Normalize → RMS=9830 → Silence check → ABOVE threshold → Detected ✓
+  Raw audio RMS=30 → Normalize → RMS=9830 → Silence check → ABOVE
+  threshold → Detected ✓
 ```
 
 **When to enable:**
@@ -202,7 +207,8 @@ vosk-wrapper-1000 daemon --normalize-audio --silence-threshold 100.0
 
 ### 4. Noise Reduction (Optional)
 
-Uses the `noisereduce` library to filter background noise while preserving speech:
+Uses the `noisereduce` library to filter background noise while preserving
+speech:
 
 **Process:**
 1. Convert to float32 normalized to [-1.0, 1.0]
@@ -231,7 +237,10 @@ vosk-wrapper-1000 daemon --disable-noise-reduction
 ```
 
 **Safety Check:**
-The system validates that noise reduction doesn't remove too much signal by comparing RMS before and after. If processed RMS falls below `noise_reduction_min_rms_ratio` (default: 0.5) of the original, the original audio is used instead.
+The system validates that noise reduction doesn't remove too much signal by
+comparing RMS before and after. If processed RMS falls below
+`noise_reduction_min_rms_ratio` (default: 0.5) of the original, the original
+audio is used instead.
 
 **Location:** audio_processor.py:196-240
 
@@ -269,11 +278,14 @@ if device_rate != model_rate:
 
 ### 6. Voice Activity Detection (VAD)
 
-The VAD system is a sophisticated state machine that intelligently detects when speech is present while avoiding false triggers from background noise and handling natural pauses in speech.
+The VAD system is a sophisticated state machine that intelligently detects
+when speech is present while avoiding false triggers from background noise and
+handling natural pauses in speech.
 
 #### 6.1 Silence Detection
 
-The fundamental building block of VAD is the silence detector that determines if an audio chunk contains meaningful sound:
+The fundamental building block of VAD is the silence detector that determines
+if an audio chunk contains meaningful sound:
 
 ```python
 def has_audio(self, audio_data: np.ndarray) -> bool:
@@ -306,21 +318,25 @@ def has_audio(self, audio_data: np.ndarray) -> bool:
 - DC offset biases RMS calculation
 - Removing it ensures we measure actual audio variation
 
-**Important:** Silence detection is performed on **PROCESSED** audio (after normalization and noise reduction), not raw audio. This is critical because:
+**Important:** Silence detection is performed on **PROCESSED** audio (after
+normalization and noise reduction), not raw audio. This is critical because:
 1. **Normalization (if enabled)** amplifies quiet speech to detectable levels
-2. **Noise reduction (if enabled)** removes background noise that could cause false negatives
+2. **Noise reduction (if enabled)** removes background noise that could cause
+false negatives
 3. **Resampling** provides consistent sample rate for threshold comparison
 
 **Processing Order for Silence Detection:**
 ```
-Raw Audio → [Normalization] → [Noise Reduction] → [Resampling] → Silence Detection (has_audio)
+Raw Audio → [Normalization] → [Noise Reduction] → [Resampling] → Silence
+Detection (has_audio)
                     ↓                  ↓                 ↓
               Amplifies quiet    Removes background   Model rate
               speech first       noise                for RMS calc
 ```
 
 This means:
-- **With normalization enabled:** Quiet/distant speech is amplified BEFORE silence detection, making it more likely to be detected
+- **With normalization enabled:** Quiet/distant speech is amplified BEFORE
+silence detection, making it more likely to be detected
 - **Without normalization:** Only the original audio volume is considered
 - The `--silence-threshold` value interacts with normalization settings
 
@@ -339,7 +355,8 @@ vosk-wrapper-1000 daemon --silence-threshold 50.0
 
 #### 6.2 Pre-Roll Buffering
 
-Pre-roll buffering is a ring buffer that continuously stores audio **before** speech is detected, ensuring we never cut off the beginning of words.
+Pre-roll buffering is a ring buffer that continuously stores audio **before**
+speech is detected, ensuring we never cut off the beginning of words.
 
 **The Problem Without Pre-Roll:**
 ```
@@ -374,8 +391,10 @@ self.pre_roll_samples = int(pre_roll_duration * model_rate)
 ```
 
 **Why Store Unprocessed Audio?**
-The buffer stores **raw mono audio** (before noise reduction/resampling) for two reasons:
-1. **Avoid cumulative artifacts:** Processing audio multiple times accumulates distortion
+The buffer stores **raw mono audio** (before noise reduction/resampling) for
+two reasons:
+1. **Avoid cumulative artifacts:** Processing audio multiple times accumulates
+distortion
 2. **Efficiency:** Only process audio once when it's actually needed
 3. **Flexibility:** Can apply different processing settings to buffered audio
 
@@ -424,7 +443,8 @@ vosk-wrapper-1000 daemon --pre-roll-duration 1.0
 
 #### 6.3 VAD State Machine
 
-The VAD implements a finite state machine with hysteresis to robustly handle speech detection:
+The VAD implements a finite state machine with hysteresis to robustly handle
+speech detection:
 
 **State Variables:**
 ```python
@@ -575,7 +595,8 @@ if has_audio and not in_speech:
 
 **Example:**
 ```
-Chunk 4: RMS=150 (> threshold=50)  → Process buffer chunks 1-3, return [pre_roll, chunk_4]
+Chunk 4: RMS=150 (> threshold=50)  → Process buffer chunks 1-3, return
+[pre_roll, chunk_4]
                                       Set in_speech = True
 ```
 
@@ -616,17 +637,22 @@ if not has_audio and in_speech:
 **Example with vad_hysteresis_chunks=10:**
 ```
 Chunk 8:  RMS=720 (> threshold)  → consecutive_silent=0, return [chunk_8]
-Chunk 9:  RMS=40  (< threshold)  → consecutive_silent=1, return [chunk_9]  (hysteresis)
-Chunk 10: RMS=35  (< threshold)  → consecutive_silent=2, return [chunk_10] (hysteresis)
-Chunk 11: RMS=42  (< threshold)  → consecutive_silent=3, return [chunk_11] (hysteresis)
-Chunk 12: RMS=650 (> threshold)  → consecutive_silent=0, return [chunk_12] (speech resumed!)
+Chunk 9:  RMS=40  (< threshold)  → consecutive_silent=1, return [chunk_9]
+(hysteresis)
+Chunk 10: RMS=35  (< threshold)  → consecutive_silent=2, return [chunk_10]
+(hysteresis)
+Chunk 11: RMS=42  (< threshold)  → consecutive_silent=3, return [chunk_11]
+(hysteresis)
+Chunk 12: RMS=650 (> threshold)  → consecutive_silent=0, return [chunk_12]
+(speech resumed!)
 ```
 
 **Why Hysteresis is Critical:**
 - **Natural pauses:** People pause between words/sentences
 - **Breathing:** Brief silent periods during breathing
 - **Consonants:** Some speech sounds have lower energy
-- **Without hysteresis:** Each pause would end detection, creating fragmented results
+- **Without hysteresis:** Each pause would end detection, creating fragmented
+results
 
 **Timing Example:**
 ```
@@ -811,8 +837,10 @@ vosk-wrapper-1000 daemon --vad-hysteresis 5
 
 Silence detection happens AFTER audio processing, so the order matters:
 ```
-Raw Audio (RMS=30) → Normalization (RMS=200) → Silence Check (threshold=50) → DETECTED ✓
-Raw Audio (RMS=30) → No Normalization        → Silence Check (threshold=50) → NOT DETECTED ✗
+Raw Audio (RMS=30) → Normalization (RMS=200) → Silence Check
+(threshold=50) → DETECTED ✓
+Raw Audio (RMS=30) → No Normalization        → Silence Check
+(threshold=50) → NOT DETECTED ✗
 ```
 
 **Solutions:**
@@ -821,7 +849,8 @@ Raw Audio (RMS=30) → No Normalization        → Silence Check (threshold=50) 
    ```bash
    vosk-wrapper-1000 daemon --normalize-audio --normalize-target-level 0.3
    ```
-   This amplifies quiet speech BEFORE silence detection, making it more likely to be detected.
+    This amplifies quiet speech BEFORE silence detection, making it more
+    likely to be detected.
 
 2. **Lower silence threshold** (if normalization doesn't help)
    ```bash
@@ -838,7 +867,8 @@ Raw Audio (RMS=30) → No Normalization        → Silence Check (threshold=50) 
    ```bash
    vosk-wrapper-1000 daemon --record-audio debug.wav --normalize-audio
    ```
-   Listen to what Vosk receives. If it's still too quiet, increase normalization target or lower threshold.
+    Listen to what Vosk receives. If it's still too quiet, increase
+    normalization target or lower threshold.
 
 ### Issue: Too much background noise
 

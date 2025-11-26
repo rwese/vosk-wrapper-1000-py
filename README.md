@@ -1,8 +1,10 @@
 # Vosk Wrapper 1000
 
-A modular speech recognition toolkit using [Vosk](https://alphacephei.com/vosk/) with separate components for different use cases.
+A modular speech recognition toolkit using [Vosk](https://alphacephei.com/vosk/)
+with separate components for different use cases.
 
-**Repository**: [github.com/rwese/vosk-wrapper-1000-py](https://github.com/rwese/vosk-wrapper-1000-py)
+**Repository**: [github.com/rwese/vosk-wrapper-1000-py]
+(https://github.com/rwese/vosk-wrapper-1000-py)
 
 ## 🚀 **What's New in v3.0**
 
@@ -11,16 +13,22 @@ A modular speech recognition toolkit using [Vosk](https://alphacephei.com/vosk/)
   - `vosk-core`: Core audio processing and Vosk integration library
   - `vosk-wrapper-1000`: Daemon for continuous speech recognition
   - `vosk-transcribe`: Standalone file transcription tool
-- **Enhanced Audio Processing**: Upgraded to soxr HQ streaming resampling with configurable noise filtering
-- **Audio Recording**: Record processed audio to WAV files for review and debugging
-- **Cross-Platform Audio System Detection**: Automatic detection of PipeWire/PulseAudio/ALSA/CoreAudio/WASAPI
-- **Improved Device Management**: Enhanced device compatibility validation and management
+- **Enhanced Audio Processing**: Upgraded to soxr HQ streaming resampling
+with configurable noise filtering
+- **Audio Recording**: Record processed audio to WAV files for review and
+debugging
+- **Cross-Platform Audio System Detection**: Automatic detection of
+PipeWire/PulseAudio/ALSA/CoreAudio/WASAPI
+- **Improved Device Management**: Enhanced device compatibility validation
+and management
 
 ### **New Features**
-- **Interactive Settings TUI**: `vosk-settings-tui` - Visual interface for experimenting with audio settings
+- **Interactive Settings TUI**: `vosk-settings-tui` - Visual interface for
+experimenting with audio settings
 - **Configurable Noise Reduction**: `--noise-reduction 0.0-1.0` (default: 0.2)
 - **Noise Type Selection**: `--stationary-noise` vs `--non-stationary-noise`
-- **Audio Recording**: `--record-audio filename.wav` records exactly what Vosk receives
+- **Audio Recording**: `--record-audio filename.wav` records exactly what
+Vosk receives
 - **Enhanced CLI**: Better help, examples, and error handling
 - **Audio System Info**: Detailed audio backend information for troubleshooting
 - **Modern Build System**: Full uv support with proper Python packaging
@@ -70,7 +78,8 @@ systemctl --user status vosk-wrapper-1000-default.service
 journalctl --user -u vosk-wrapper-1000-default.service -f
 ```
 
-See [docs/SYSTEMD_SERVICE.md](docs/SYSTEMD_SERVICE.md) for detailed systemd setup and management.
+See [docs/SYSTEMD_SERVICE.md](docs/SYSTEMD_SERVICE.md) for detailed systemd
+setup and management.
 
 ### Available Commands
 
@@ -79,6 +88,112 @@ After installation, these commands will be available in your PATH:
 - `vosk-download-model-1000` - Download and manage Vosk models
 - `vosk-transcribe-file` - Transcribe audio files
 - `vosk-settings-tui` - Interactive TUI for audio settings configuration
+
+## Multi-Backend Speech Recognition
+
+Vosk-wrapper-1000 supports multiple speech recognition backends, allowing you
+to choose the best engine for your needs:
+
+### Available Backends
+
+- **Vosk** (default) - Fast, offline, supports streaming and partial results
+- **FasterWhisper** - GPU-accelerated Whisper via CTranslate2, good balance
+of speed and accuracy
+- **Whisper** - Original OpenAI Whisper, highest accuracy but slower
+
+### Installing Backend Dependencies
+
+Backends other than Vosk require optional dependencies:
+
+```bash
+# Using uv (recommended)
+uv sync --extra faster-whisper    # For FasterWhisper backend
+uv sync --extra whisper            # For OpenAI Whisper backend
+uv sync --extra all-backends       # For all backends
+
+# Or with uv pip
+uv pip install -e ".[faster-whisper]"
+uv pip install -e ".[whisper]"
+uv pip install -e ".[all-backends]"
+
+# Or with regular pip
+pip install ".[faster-whisper]"
+pip install ".[whisper]"
+pip install ".[all-backends]"
+```
+
+### Using Different Backends
+
+Select a backend via CLI argument:
+
+```bash
+# Use FasterWhisper backend
+vosk-wrapper-1000 daemon --backend faster-whisper
+
+# Use Whisper backend
+vosk-transcribe-file audio.wav --backend whisper
+```
+
+Or via configuration file (`~/.config/vosk-wrapper-1000/config.yaml`):
+
+```yaml
+backend:
+  type: faster-whisper
+
+faster_whisper_options:
+  device: cuda              # cpu, cuda, or auto
+  compute_type: int8        # int8, int16, float16, float32
+  beam_size: 5
+  language: en              # or null for auto-detect
+  vad_filter: true
+```
+
+Or via environment variable:
+
+```bash
+export VOSK_BACKEND=faster-whisper
+vosk-wrapper-1000 daemon
+```
+
+### Backend Comparison
+
+| Feature | Vosk | FasterWhisper | Whisper |
+|---------|------|---------------|---------|
+| Speed | ⚡️ Fast | 🚀 Very Fast (GPU) | 🐢 Slow |
+| Accuracy | ✓ Good | ✓✓ Better | ✓✓✓ Best |
+| Streaming | ✓ Yes | ✗ No | ✗ No |
+| Partial Results | ✓ Yes | ✗ No | ✗ No |
+| GPU Support | ✗ No | ✓ Yes | ✓ Yes |
+| Offline | ✓ Yes | ✓ Yes | ✓ Yes |
+| Model Size | Small-Large | Small-Large | Small-Large |
+
+### Model Management
+
+Models are stored in backend-specific directories:
+
+```
+~/.local/share/vosk-wrapper-1000/models/
+├── vosk/              # Vosk models
+├── faster-whisper/    # FasterWhisper models
+└── whisper/           # Whisper models
+```
+
+Download models for each backend:
+
+```bash
+# Vosk models (via vosk-download-model-1000)
+vosk-download-model-1000 vosk-model-small-en-us-0.15
+
+# FasterWhisper models (auto-downloaded on first use)
+vosk-wrapper-1000 daemon --backend faster-whisper --model base.en
+
+# Whisper models (auto-downloaded on first use)
+vosk-wrapper-1000 daemon --backend whisper --model base
+```
+
+**Note**: FasterWhisper and Whisper process audio in batches (no real-time
+streaming), so they buffer audio and transcribe when speech ends. Vosk supports
+true streaming with partial results.
 
 ## Package Structure
 
@@ -152,7 +267,8 @@ If you installed the package, use the commands directly:
     vosk-wrapper-1000 daemon --name my-instance \
       --device "Microphone Name" \
       --samplerate 48000 \
-      --model ~/.local/share/vosk-wrapper-1000/models/vosk-model-small-en-us-0.15
+      --model ~/.local/share/vosk-wrapper-1000/models/ \
+      vosk-model-small-en-us-0.15
 
     # Run with advanced Vosk options
     vosk-wrapper-1000 daemon \
@@ -197,7 +313,9 @@ If you installed the package, use the commands directly:
     vosk-transcribe-file audio.wav --output transcript.txt
 
     # Use a specific model
-    vosk-transcribe-file audio.mp3 --model ~/.local/share/vosk-wrapper-1000/models/vosk-model-en-us-0.22 --output result.txt
+    vosk-transcribe-file audio.mp3 \
+    --model ~/.local/share/vosk-wrapper-1000/models/vosk-model-en-us-0.22 \
+    --output result.txt
 
     # Get help
     vosk-transcribe-file --help
@@ -228,7 +346,8 @@ If you cloned the repository and want to run without installing:
     uvx --from . vosk-wrapper-1000 daemon
 
     # Run with a named instance
-    uvx --from . vosk-wrapper-1000 daemon --name my-instance --device "Microphone Name"
+    uvx --from . vosk-wrapper-1000 daemon --name my-instance \
+    --device "Microphone Name"
 
     # Control instances
     uvx --from . vosk-wrapper-1000 list
@@ -258,7 +377,8 @@ If you prefer to develop locally or don't want to use uvx:
     uv run python -m vosk_core.download_model vosk-model-small-en-us-0.15
 
     # Delete a model
-    uv run python -m vosk_core.download_model --delete vosk-model-small-en-us-0.15
+    uv run python -m vosk_core.download_model \
+    --delete vosk-model-small-en-us-0.15
     ```
 
 3.  **Run the Application**
@@ -273,13 +393,18 @@ If you prefer to develop locally or don't want to use uvx:
 
 ## Automatic Sample Rate Handling
 
-Vosk-wrapper-1000 automatically handles sample rate mismatches between your audio device and the model:
+Vosk-wrapper-1000 automatically handles sample rate mismatches between your
+audio device and the model:
 
-1. **Auto-detection**: Reads the model's required sample rate from `conf/mfcc.conf`
-2. **Device native rate**: Always uses your device's native sample rate for recording
-3. **Automatic resampling**: Transparently resamples audio from device rate to model rate
+1. **Auto-detection**: Reads the model's required sample rate from
+`conf/mfcc.conf`
+2. **Device native rate**: Always uses your device's native sample rate for
+recording
+3. **Automatic resampling**: Transparently resamples audio from device rate
+to model rate
 
-This means you don't need to worry about sample rates - just run the application and it will work with any audio device!
+This means you don't need to worry about sample rates - just run the
+application and it will work with any audio device!
 
 Example:
 ```bash
@@ -292,34 +417,41 @@ vosk-wrapper-1000 daemon
 
 ## Enhanced Audio Processing
 
-> **📖 For a comprehensive explanation of the complete audio processing pipeline, see [docs/AUDIO_PROCESSING.md](docs/AUDIO_PROCESSING.md)**
+> **📖 For a comprehensive explanation of the complete audio processing
+pipeline, see [docs/AUDIO_PROCESSING.md](docs/AUDIO_PROCESSING.md)**
 
 ### **High-Quality Audio Resampling**
 
 Vosk-wrapper-1000 now uses **soxr** for high-quality streaming resampling:
 - **HQ Quality**: Better than scipy resampling with optimized algorithms
 - **Streaming**: Real-time resampling with proper chunking and finalization
-- **Automatic**: Handles any device-to-model sample rate conversion transparently
+- **Automatic**: Handles any device-to-model sample rate conversion
+transparently
 
 ### **Configurable Noise Filtering**
 
-Advanced noise reduction using the **noisereduce** library with configurable options:
+Advanced noise reduction using the **noisereduce** library with configurable
+options:
 
 ```bash
 # Configure noise reduction strength (0.0-1.0, default: 0.2)
 vosk-wrapper-1000 daemon --noise-reduction 0.3
 
 # Choose noise type (default: stationary)
-vosk-wrapper-1000 daemon --stationary-noise      # Faster, good for constant noise
-vosk-wrapper-1000 daemon --non-stationary-noise  # Slower, adapts to changing noise
+vosk-wrapper-1000 daemon --stationary-noise \
+    # Faster, good for constant noise
+vosk-wrapper-1000 daemon --non-stationary-noise \
+    # Slower, adapts to changing noise
 
 # Disable noise filtering completely
 vosk-wrapper-1000 daemon --disable-noise-filter
 ```
 
 **Noise Reduction Types:**
-- **Stationary** (default): Optimized for constant background noise (fans, AC, hum)
-- **Non-stationary**: Adapts to changing noise patterns (better for variable environments)
+- **Stationary** (default): Optimized for constant background noise
+(fans, AC, hum)
+- **Non-stationary**: Adapts to changing noise patterns (better for variable
+environments)
 
 ### **Audio Recording**
 
@@ -336,7 +468,8 @@ vosk-wrapper-1000 daemon \
   --device "USB Microphone"
 ```
 
-The recording includes all processing (noise filtering, resampling) that Vosk receives, making it perfect for:
+The recording includes all processing (noise filtering, resampling) that Vosk
+receives, making it perfect for:
 - Debugging recognition issues
 - Reviewing audio quality
 - Training data preparation
@@ -365,9 +498,13 @@ vosk-wrapper-1000 daemon --foreground
 
 Vosk-wrapper-1000 exposes several Vosk recognition parameters:
 
--   **`--words`**: Enable word-level timestamps in the recognition output. This adds timing information for each recognized word.
--   **`--partial-words`**: Enable partial word results during recognition. Useful for real-time feedback as words are being spoken.
--   **`--grammar "word1 word2 word3"`**: Restrict recognition to a specific vocabulary. This can improve accuracy when you know the expected words (e.g., voice commands like "yes no stop start").
+-   **`--words`**: Enable word-level timestamps in the recognition output.
+This adds timing information for each recognized word.
+-   **`--partial-words`**: Enable partial word results during recognition.
+Useful for real-time feedback as words are being spoken.
+-   **`--grammar "word1 word2 word3"`**: Restrict recognition to a specific
+vocabulary. This can improve accuracy when you know the expected words
+(e.g., voice commands like "yes no stop start").
 
 Example:
 ```bash
@@ -380,13 +517,18 @@ vosk-wrapper-1000 daemon --name commands \
 
 ## Managing Multiple Instances
 
-You can run multiple instances of vosk-wrapper-1000 simultaneously with different models or configurations. Each instance is identified by a unique name:
+You can run multiple instances of vosk-wrapper-1000 simultaneously with
+different models or configurations. Each instance is identified by a unique
+name:
 
 ```bash
 # Start multiple instances with different models
-vosk-wrapper-1000 daemon --name english --model ~/.local/share/vosk-wrapper-1000/models/vosk-model-en-us-0.22 &
-vosk-wrapper-1000 daemon --name german --model ~/.local/share/vosk-wrapper-1000/models/vosk-model-de-0.21 &
-vosk-wrapper-1000 daemon --name spanish --model ~/.local/share/vosk-wrapper-1000/models/vosk-model-es-0.42 &
+vosk-wrapper-1000 daemon --name english \
+--model ~/.local/share/vosk-wrapper-1000/models/vosk-model-en-us-0.22 &
+vosk-wrapper-1000 daemon --name german \
+--model ~/.local/share/vosk-wrapper-1000/models/vosk-model-de-0.21 &
+vosk-wrapper-1000 daemon --name spanish \
+--model ~/.local/share/vosk-wrapper-1000/models/vosk-model-es-0.42 &
 
 # List all running instances
 vosk-wrapper-1000 list
@@ -399,11 +541,16 @@ vosk-wrapper-1000 terminate spanish
 
 ## File Locations
 
-The application follows the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html) for portable configuration and data storage:
+The application follows the [XDG Base Directory Specification]
+(https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html)
+for portable configuration and data storage:
 
--   **Models**: `$XDG_DATA_HOME/vosk-wrapper-1000/models/` (default: `~/.local/share/vosk-wrapper-1000/models/`)
--   **Hooks**: `$XDG_CONFIG_HOME/vosk-wrapper-1000/hooks/` (default: `~/.config/vosk-wrapper-1000/hooks/`)
--   **PID Files**: `$XDG_CACHE_HOME/vosk-wrapper-1000/pids/` (default: `~/.cache/vosk-wrapper-1000/pids/`)
+-   **Models**: `$XDG_DATA_HOME/vosk-wrapper-1000/models/` (default:
+`~/.local/share/vosk-wrapper-1000/models/`)
+-   **Hooks**: `$XDG_CONFIG_HOME/vosk-wrapper-1000/hooks/` (default:
+`~/.config/vosk-wrapper-1000/hooks/`)
+-   **PID Files**: `$XDG_CACHE_HOME/vosk-wrapper-1000/pids/` (default:
+`~/.cache/vosk-wrapper-1000/pids/`)
 
 You can override these locations using:
 -   `XDG_DATA_HOME` environment variable for models
@@ -420,7 +567,8 @@ XDG_DATA_HOME=~/my-data XDG_CONFIG_HOME=~/my-config vosk-wrapper-1000
 vosk-wrapper-1000 --model /path/to/model --hooks-dir /path/to/hooks
 
 # When running from source
-XDG_DATA_HOME=~/my-data XDG_CONFIG_HOME=~/my-config uvx --from . vosk-wrapper-1000
+XDG_DATA_HOME=~/my-data XDG_CONFIG_HOME=~/my-config \
+uvx --from . vosk-wrapper-1000
 ```
 
 ## Controls
@@ -457,17 +605,21 @@ kill -SIGTERM $PID  # Terminate
 
 ## Hooks System
 
-The application supports a flexible hook system to react to events. Hooks are executable scripts placed in the hooks directory structure (default: `~/.config/vosk-wrapper-1000/hooks/`).
+The application supports a flexible hook system to react to events. Hooks are
+executable scripts placed in the hooks directory structure (default:
+`~/.config/vosk-wrapper-1000/hooks/`).
 
 ### Event Types
 
 -   **`hooks/start/`**: Triggered when listening starts.
--   **`hooks/line/`**: Triggered for every transcribed line. The text is passed via `stdin`.
+-   **`hooks/line/`**: Triggered for every transcribed line. The text is
+passed via `stdin`.
 -   **`hooks/stop/`**: Triggered when listening stops.
 
 ### JSON Hooks
 
-Hooks with `json` in their filename receive structured JSON data instead of plain text. This is useful for programmatic processing of transcript data.
+Hooks with `json` in their filename receive structured JSON data instead of
+plain text. This is useful for programmatic processing of transcript data.
 
 **JSON Format:**
 ```json
@@ -481,15 +633,19 @@ Hooks with `json` in their filename receive structured JSON data instead of plai
 
 **Available JSON Hook Examples:**
 - `hooks/start/02_json_logger.sh` - Logs when listening starts
-- `hooks/line/03_json_processor.sh` - Processes each transcript line with analysis
-- `hooks/stop/02_json_example.sh` - Handles final transcript with session statistics
+- `hooks/line/03_json_processor.sh` - Processes each transcript line with
+analysis
+- `hooks/stop/02_json_example.sh` - Handles final transcript with session
+statistics
 
 **Creating a JSON Hook:**
 ```bash
 # Create a JSON hook (note 'json' in filename)
 echo '#!/bin/bash' > ~/.config/vosk-wrapper-1000/hooks/line/01_json_processor.sh
-echo 'json_data=$(cat)' >> ~/.config/vosk-wrapper-1000/hooks/line/01_json_processor.sh
-echo 'echo "Received JSON: $json_data" >&2' >> ~/.config/vosk-wrapper-1000/hooks/line/01_json_processor.sh
+echo 'json_data=$(cat)' >> \
+~/.config/vosk-wrapper-1000/hooks/line/01_json_processor.sh
+echo 'echo "Received JSON: $json_data" >&2' >> \
+~/.config/vosk-wrapper-1000/hooks/line/01_json_processor.sh
 chmod +x ~/.config/vosk-wrapper-1000/hooks/line/01_json_processor.sh
 ```
 
@@ -510,7 +666,8 @@ mkdir -p ~/.config/vosk-wrapper-1000/hooks/{start,line,stop}
 
 # Example: Create a hook that runs when listening starts
 echo '#!/bin/bash' > ~/.config/vosk-wrapper-1000/hooks/start/01_notify.sh
-echo 'echo "Listening started!"' >> ~/.config/vosk-wrapper-1000/hooks/start/01_notify.sh
+echo 'echo "Listening started!"' >> \
+~/.config/vosk-wrapper-1000/hooks/start/01_notify.sh
 chmod +x ~/.config/vosk-wrapper-1000/hooks/start/01_notify.sh
 ```
 
@@ -519,12 +676,14 @@ chmod +x ~/.config/vosk-wrapper-1000/hooks/start/01_notify.sh
 Hooks can control the application flow using return codes:
 
 -   **`0`**: Continue normal execution.
--   **`100`**: Request to **stop listening** (valid in `start` and `line` hooks).
+-   **`100`**: Request to **stop listening** (valid in `start` and `line`
+hooks).
 -   **`101`**: Request to **terminate** the application immediately.
 
 ### Example Hooks
 
-Example scripts are provided in the repository's `hooks/` directory. To use them, copy them to your XDG hooks directory:
+Example scripts are provided in the repository's `hooks/` directory. To use
+them, copy them to your XDG hooks directory:
 
 ```bash
 # Clone the repository if you haven't already
@@ -537,7 +696,9 @@ chmod +x ~/.config/vosk-wrapper-1000/hooks/*/*.sh
 chmod +x ~/.config/vosk-wrapper-1000/hooks/*/*.py
 ```
 
-You can also reference the [repository's `hooks/` directory](https://github.com/rwese/vosk-wrapper-1000-py/tree/main/hooks) for examples of how to write custom hooks.
+You can also reference the [repository's `hooks/` directory]
+(https://github.com/rwese/vosk-wrapper-1000-py/tree/main/hooks) for examples
+of how to write custom hooks.
 
 ## Architecture Overview
 
@@ -581,7 +742,9 @@ vosk-wrapper-1000/
 
 **Problem: "Invalid sample rate" or "PaErrorCode -9997" error**
 
-This should no longer occur as application automatically uses your device's native sample rate and handles resampling internally. If you still encounter this error:
+This should no longer occur as application automatically uses your device's
+native sample rate and handles resampling internally. If you still encounter
+this error:
 
 1. List your audio devices to verify they're detected:
    ```bash
@@ -684,7 +847,8 @@ Ensure the instance is running:
 vosk-wrapper-1000 list
 ```
 
-If the PID is listed but commands fail, the process may have crashed. Terminate and restart:
+If the PID is listed but commands fail, the process may have crashed.
+Terminate and restart:
 ```bash
 vosk-wrapper-1000 terminate instance-name
 vosk-wrapper-1000 daemon --name instance-name
@@ -720,8 +884,10 @@ This will show all log messages, errors, and recognition output in real-time.
 vosk-wrapper-1000 daemon --record-audio debug_session.wav --foreground
 
 # Test with different noise reduction settings
-vosk-wrapper-1000 daemon --noise-reduction 0.5 --record-audio strong_noise.wav --foreground
-vosk-wrapper-1000 daemon --disable-noise-filter --record-audio no_filter.wav --foreground
+vosk-wrapper-1000 daemon --noise-reduction 0.5 \
+--record-audio strong_noise.wav --foreground
+vosk-wrapper-1000 daemon --disable-noise-filter \
+--record-audio no_filter.wav --foreground
 ```
 
 **Performance Monitoring:**

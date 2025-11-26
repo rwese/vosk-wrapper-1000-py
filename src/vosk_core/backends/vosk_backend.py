@@ -56,7 +56,8 @@ class VoskBackend(RecognitionBackend):
         Returns:
             True if final result is ready, False for partial result
         """
-        return self.recognizer.AcceptWaveform(data)
+        result = self.recognizer.AcceptWaveform(data)
+        return bool(result)
 
     def get_result(self) -> RecognitionResult:
         """Get final recognition result.

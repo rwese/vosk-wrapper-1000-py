@@ -50,7 +50,7 @@ class FasterWhisperBackend(RecognitionBackend):
         self.model = WhisperModel(model_path, device=device, compute_type=compute_type)
 
         # Audio buffer for batch processing
-        self.audio_buffer = []
+        self.audio_buffer: list[np.ndarray] = []
         self._has_speech = False
 
     def accept_waveform(self, data: bytes) -> bool:
