@@ -43,6 +43,12 @@ sources = ["src"]
 
 [project.optional-dependencies]
 pipewire = ["pipewire-python"]
+faster-whisper = ["faster-whisper>=1.0.0"]
+whisper = ["openai-whisper>=20231117"]
+all-backends = [
+    "faster-whisper>=1.0.0",
+    "openai-whisper>=20231117",
+]
 
 [dependency-groups]
 dev = [

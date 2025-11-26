@@ -7,17 +7,27 @@ from .xdg_paths import get_default_model_path, get_models_dir
 
 
 class ModelManager:
-    """Manages Vosk model loading and configuration."""
+    """Manages model loading and configuration for all backends."""
 
     def __init__(self):
-        self.models_dir = get_models_dir()
+        self.models_base_dir = Path(get_models_dir())
+        # Backend-specific model directories
+        self.vosk_models_dir = self.models_base_dir / "vosk"
+        self.faster_whisper_models_dir = self.models_base_dir / "faster-whisper"
+        self.whisper_models_dir = self.models_base_dir / "whisper"
+
+        # Legacy: backward compatibility with old model directory
+        self.models_dir = self.models_base_dir
         self.default_model = get_default_model_path()
 
-    def resolve_model_path(self, model_path: str | Path) -> Path:
+    def resolve_model_path(
+        self, model_path: str | Path, backend_type: str = "vosk"
+    ) -> Path:
         """Resolve a model path or name to an absolute path.
 
         Args:
             model_path: Either an absolute/relative path or a model name
+            backend_type: Backend type (vosk, faster-whisper, whisper)
 
         Returns:
             Resolved absolute path to the model
@@ -35,7 +45,23 @@ class ModelManager:
         if model_path.exists():
             return model_path.resolve()
 
-        # Try to find it in the models directory by name
+        # Get backend-specific model directory
+        if backend_type == "vosk":
+            backend_dir = self.vosk_models_dir
+        elif backend_type == "faster-whisper":
+            backend_dir = self.faster_whisper_models_dir
+        elif backend_type == "whisper":
+            backend_dir = self.whisper_models_dir
+        else:
+            # Fallback to base directory for unknown backends
+            backend_dir = self.models_base_dir
+
+        # Try to find it in the backend-specific directory
+        model_in_backend_dir = backend_dir / str(model_path)
+        if model_in_backend_dir.exists():
+            return model_in_backend_dir
+
+        # Try to find it in the base models directory (legacy support)
         model_in_dir = self.models_dir / str(model_path)
         if model_in_dir.exists():
             return model_in_dir
@@ -45,45 +71,106 @@ class ModelManager:
             f"Model not found: {model_path}\n"
             f"Searched locations:\n"
             f"  - {model_path} (as provided)\n"
-            f"  - {model_in_dir} (in models directory)"
+            f"  - {model_in_backend_dir} (in {backend_type} models directory)\n"
+            f"  - {model_in_dir} (in base models directory)"
         )
 
-    def get_model_sample_rate(self, model_path: str) -> int:
-        """Extract sample rate from model's mfcc.conf file."""
-        mfcc_conf = os.path.join(model_path, "conf", "mfcc.conf")
-        if os.path.exists(mfcc_conf):
-            try:
-                with open(mfcc_conf) as f:
-                    for line in f:
-                        if "--sample-frequency" in line:
-                            # Extract: --sample-frequency=16000
-                            rate = int(line.split("=")[1].strip())
-                            return rate
-            except (OSError, ValueError, IndexError):
-                pass
-        # Default to 16000 if not found
-        return 16000
+    def get_model_sample_rate(self, model_path: str, backend_type: str = "vosk") -> int:
+        """Get sample rate for model based on backend.
 
-    def validate_model(self, model_path: str) -> tuple[bool, str]:
-        """Validate that model exists and is accessible."""
+        Args:
+            model_path: Path to the model
+            backend_type: Backend type (vosk, faster-whisper, whisper)
+
+        Returns:
+            Sample rate in Hz
+        """
+        if backend_type == "vosk":
+            # Extract from Vosk model's mfcc.conf file
+            mfcc_conf = os.path.join(model_path, "conf", "mfcc.conf")
+            if os.path.exists(mfcc_conf):
+                try:
+                    with open(mfcc_conf) as f:
+                        for line in f:
+                            if "--sample-frequency" in line:
+                                # Extract: --sample-frequency=16000
+                                rate = int(line.split("=")[1].strip())
+                                return rate
+                except (OSError, ValueError, IndexError):
+                    pass
+            # Default to 16000 if not found
+            return 16000
+        elif backend_type in ["faster-whisper", "whisper"]:
+            # Whisper models always expect 16kHz audio
+            return 16000
+        else:
+            # Default for unknown backends
+            return 16000
+
+    def validate_model(
+        self, model_path: str, backend_type: str = "vosk"
+    ) -> tuple[bool, str]:
+        """Validate model for specific backend.
+
+        Args:
+            model_path: Path to the model
+            backend_type: Backend type (vosk, faster-whisper, whisper)
+
+        Returns:
+            Tuple of (is_valid, message)
+        """
         if not os.path.exists(model_path):
             return False, f"Model path does not exist: {model_path}"
 
-        if not os.path.isdir(model_path):
-            return False, f"Model path is not a directory: {model_path}"
+        if backend_type == "vosk":
+            # Vosk models are directories
+            if not os.path.isdir(model_path):
+                return False, f"Vosk model path is not a directory: {model_path}"
 
-        # Check for required model files
-        required_files = ["am/final.mdl", "conf/mfcc.conf", "graph/HCLG.fst"]
-        missing_files = []
-        for file_path in required_files:
-            full_path = os.path.join(model_path, file_path)
-            if not os.path.exists(full_path):
-                missing_files.append(file_path)
+            # Check for required Vosk model files
+            required_files = ["am/final.mdl", "conf/mfcc.conf", "graph/HCLG.fst"]
+            missing_files = []
+            for file_path in required_files:
+                full_path = os.path.join(model_path, file_path)
+                if not os.path.exists(full_path):
+                    missing_files.append(file_path)
 
-        if missing_files:
-            return False, f"Model missing required files: {', '.join(missing_files)}"
+            if missing_files:
+                return (
+                    False,
+                    f"Vosk model missing required files: {', '.join(missing_files)}",
+                )
 
-        return True, "Model validation passed"
+            return True, "Model validation passed"
+
+        elif backend_type == "faster-whisper":
+            # FasterWhisper models can be directories or model names
+            if os.path.isdir(model_path):
+                # Check for model files (model.bin, config.json, etc.)
+                required_files = ["config.json"]  # Minimal check
+                for file_name in required_files:
+                    full_path = os.path.join(model_path, file_name)
+                    if not os.path.exists(full_path):
+                        return False, f"FasterWhisper model missing {file_name}"
+                return True, "FasterWhisper model validation passed"
+            else:
+                # Model name (will be downloaded automatically)
+                return True, f"FasterWhisper model name accepted: {model_path}"
+
+        elif backend_type == "whisper":
+            # Whisper models can be files (.pt) or model names
+            if os.path.isfile(model_path):
+                # Check if it's a .pt file
+                if not model_path.endswith(".pt"):
+                    return False, "Whisper model must be a .pt file"
+                return True, "Whisper model file validation passed"
+            else:
+                # Model name (will be downloaded automatically)
+                return True, f"Whisper model name accepted: {model_path}"
+
+        else:
+            # Unknown backend - just check if path exists
+            return True, f"Model path exists: {model_path}"
 
     def list_available_models(self) -> list[str]:
         """List all available models in the models directory."""

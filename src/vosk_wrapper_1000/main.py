@@ -367,9 +367,17 @@ def run_service(args):
     else:
         print(f"Using model from command line: {model_path}", file=sys.stderr)
 
+    # Determine backend type: CLI arg > config file > default
+    backend_type = args.backend if hasattr(args, "backend") and args.backend else None
+    if backend_type is None:
+        backend_type = config.backend.type
+        print(f"Using backend from config: {backend_type}", file=sys.stderr)
+    else:
+        print(f"Using backend from command line: {backend_type}", file=sys.stderr)
+
     # Resolve model path (support short names like "vosk-model-en-gb-0.1")
     try:
-        resolved_model_path = model_manager.resolve_model_path(model_path)
+        resolved_model_path = model_manager.resolve_model_path(model_path, backend_type)
         args.model = str(resolved_model_path)
     except FileNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)
@@ -474,7 +482,7 @@ def run_service(args):
     # Validate device compatibility (only if device is specified)
     if device_id is not None:
         is_compatible, compatibility_msg = device_manager.validate_device_for_model(
-            device_id, model_manager.get_model_sample_rate(args.model)
+            device_id, model_manager.get_model_sample_rate(args.model, backend_type)
         )
         if not is_compatible:
             logger.error(f"Device compatibility error: {compatibility_msg}")
@@ -486,7 +494,7 @@ def run_service(args):
         logger.info("Using default audio device")
 
     # Get model sample rate
-    model_sample_rate = model_manager.get_model_sample_rate(args.model)
+    model_sample_rate = model_manager.get_model_sample_rate(args.model, backend_type)
 
     # Update audio processor with rates
     if device_samplerate is not None:
@@ -523,35 +531,76 @@ def run_service(args):
     write_pid(instance_name)
     print(f"Instance '{instance_name}' starting...", file=sys.stderr)
 
-    # Load Model
+    # Load Model and Create Recognizer
     print(f"Loading model from {args.model}...", file=sys.stderr)
+    print(f"Using backend: {backend_type}", file=sys.stderr)
 
-    # Set Vosk log level to match application log level
-    log_level = getattr(args, "_final_log_level", "WARNING")
-    set_vosk_log_level(log_level)
+    # Set Vosk log level if using Vosk backend
+    if backend_type == "vosk":
+        log_level = getattr(args, "_final_log_level", "WARNING")
+        set_vosk_log_level(log_level)
 
-    import vosk
+    # Get backend-specific options from config
+    from vosk_core.backend_factory import create_backend
 
-    model = vosk.Model(str(args.model))
-    print("Model loaded successfully", file=sys.stderr)
-
-    # Create recognizer with optional grammar
-    if args.grammar:
-        print(f"Using grammar: {args.grammar}", file=sys.stderr)
-        rec = vosk.KaldiRecognizer(model, model_sample_rate, args.grammar)
+    if backend_type == "vosk":
+        # Use CLI args if provided, otherwise use config
+        backend_options = {
+            "words": args.words
+            if hasattr(args, "words")
+            else config.vosk_options.words,
+            "partial_words": args.partial_words
+            if hasattr(args, "partial_words")
+            else config.vosk_options.partial_words,
+            "grammar": args.grammar
+            if hasattr(args, "grammar") and args.grammar
+            else config.vosk_options.grammar,
+            "max_alternatives": args.max_alternatives
+            if hasattr(args, "max_alternatives")
+            else config.vosk_options.max_alternatives,
+        }
+    elif backend_type == "faster-whisper":
+        backend_options = {
+            "device": config.faster_whisper_options.device,
+            "compute_type": config.faster_whisper_options.compute_type,
+            "beam_size": config.faster_whisper_options.beam_size,
+            "language": config.faster_whisper_options.language,
+            "vad_filter": config.faster_whisper_options.vad_filter,
+        }
+    elif backend_type == "whisper":
+        backend_options = {
+            "device": config.whisper_options.device,
+            "language": config.whisper_options.language,
+            "temperature": config.whisper_options.temperature,
+            "fp16": config.whisper_options.fp16,
+        }
     else:
-        rec = vosk.KaldiRecognizer(model, model_sample_rate)
+        backend_options = {}
 
-    # Configure recognizer options
-    if args.words:
-        print("Enabling word-level timestamps", file=sys.stderr)
-        rec.SetWords(True)
-
-    if args.partial_words:
-        print("Enabling partial word results", file=sys.stderr)
-        rec.SetPartialWords(True)
-
-    print("Recognizer created and configured", file=sys.stderr)
+    # Create recognizer with backend
+    try:
+        recognizer = create_backend(
+            backend_type=backend_type,
+            model_path=str(args.model),
+            sample_rate=model_sample_rate,
+            **backend_options,
+        )
+        print(f"Model loaded successfully ({recognizer.backend_name})", file=sys.stderr)
+        print("Recognizer created and configured", file=sys.stderr)
+    except ImportError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        print(
+            f"\nTo use {backend_type} backend, install the required dependencies:",
+            file=sys.stderr,
+        )
+        if backend_type == "faster-whisper":
+            print("  pip install faster-whisper", file=sys.stderr)
+        elif backend_type == "whisper":
+            print("  pip install openai-whisper", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error creating recognizer: {e}", file=sys.stderr)
+        sys.exit(1)
 
     # Setup signal handlers
     signal_manager._setup_handlers()
@@ -863,8 +912,8 @@ def run_service(args):
                     )
 
                 # Get final result from recognizer (any pending recognition)
-                final_result = json.loads(rec.FinalResult())
-                final_text = final_result.get("text", "")
+                final_result = recognizer.get_final_result()
+                final_text = final_result.text
                 if final_text:
                     print(final_text)  # Output final recognition
                     sys.stdout.flush()
@@ -889,7 +938,7 @@ def run_service(args):
                 )
 
                 transcript_buffer = []  # Clear buffer
-                rec.Reset()  # Reset recognizer for next session
+                recognizer.reset()  # Reset recognizer for next session
 
             # Process audio if listening
             if signal_manager.is_listening() and stream is not None:
@@ -899,8 +948,8 @@ def run_service(args):
                     # Check for speech end marker
                     if data == SPEECH_END_MARKER:
                         # Speech ended - finalize the current result
-                        final_result = json.loads(rec.FinalResult())
-                        final_text = final_result.get("text", "")
+                        final_result = recognizer.get_final_result()
+                        final_text = final_result.text
                         if final_text:
                             print(final_text)  # Output final recognition
                             sys.stdout.flush()
@@ -913,9 +962,7 @@ def run_service(args):
                                         "type": "transcription",
                                         "result_type": "final",
                                         "text": final_text,
-                                        "confidence": final_result.get(
-                                            "confidence", 1.0
-                                        ),
+                                        "confidence": final_result.confidence,
                                         "timestamp": time.time(),
                                         "session_id": session_id,
                                     }
@@ -943,7 +990,7 @@ def run_service(args):
                             )
 
                         # Reset recognizer for next utterance
-                        rec.Reset()
+                        recognizer.reset()
                         continue
 
                     # Debug: Log queue processing
@@ -954,19 +1001,19 @@ def run_service(args):
                         )
                         sys.stderr.flush()
 
-                    accepted = rec.AcceptWaveform(data)
+                    accepted = recognizer.accept_waveform(data)
 
-                    # Debug: Check if Vosk is accepting the data
+                    # Debug: Check if recognizer is accepting the data
                     if callback_counter[0] % 100 == 1:
                         print(
-                            f"DEBUG: Vosk AcceptWaveform returned: {accepted}",
+                            f"DEBUG: accept_waveform returned: {accepted}",
                             file=sys.stderr,
                         )
                         sys.stderr.flush()
 
                     if accepted:
-                        result = json.loads(rec.Result())
-                        text = result.get("text", "")
+                        result = recognizer.get_result()
+                        text = result.text
                         if text:
                             print(text)  # Stream to stdout
                             sys.stdout.flush()
@@ -979,7 +1026,7 @@ def run_service(args):
                                         "type": "transcription",
                                         "result_type": "final",
                                         "text": text,
-                                        "confidence": result.get("confidence", 1.0),
+                                        "confidence": result.confidence,
                                         "timestamp": time.time(),
                                         "session_id": session_id,
                                     }
@@ -1008,8 +1055,8 @@ def run_service(args):
                     else:
                         # Broadcast partial result if enabled
                         if ipc_server and config.ipc.send_partials:
-                            partial_result = json.loads(rec.PartialResult())
-                            partial_text = partial_result.get("partial", "")
+                            partial_result = recognizer.get_partial_result()
+                            partial_text = partial_result.text
                             if partial_text:
                                 ipc_server.broadcast_event(
                                     {
@@ -1676,6 +1723,13 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
         type=str,
         default=None,
         help=f"Path to Vosk model directory (default: from config or {default_model})",
+    )
+    daemon_parser.add_argument(
+        "--backend",
+        type=str,
+        choices=["vosk", "faster-whisper", "whisper"],
+        default=None,
+        help="Recognition backend to use (default: from config or vosk)",
     )
     daemon_parser.add_argument(
         "--device", type=str, default=None, help="Input device ID or Name substring"

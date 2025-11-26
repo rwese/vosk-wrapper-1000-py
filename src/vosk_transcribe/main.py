@@ -12,24 +12,26 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import vosk
-
 from vosk_core.audio_processor import AudioProcessor
 from vosk_core.model_manager import ModelManager
 
 
 def transcribe_file(
-    audio_file: str, model_path: str | None = None, output_file: str | None = None
+    audio_file: str,
+    model_path: str | None = None,
+    output_file: str | None = None,
+    backend_type: str = "vosk",
 ) -> str:
     """
-    Transcribe an audio file using Vosk.
+    Transcribe an audio file using specified recognition backend.
 
     Supports WAV files with automatic conversion to mono and resampling to match the model's sample rate.
 
     Args:
         audio_file: Path to the WAV audio file to transcribe (must be 16-bit)
-        model_path: Path to the Vosk model (optional, will use default if not provided)
+        model_path: Path to the model (optional, will use default if not provided)
         output_file: Path to save transcription (optional, prints to stdout if not provided)
+        backend_type: Recognition backend to use (vosk, faster-whisper, whisper)
 
     Returns:
         The transcription text
@@ -41,7 +43,7 @@ def transcribe_file(
     model_manager = ModelManager()
     if model_path:
         # Resolve the provided model path
-        resolved_path = model_manager.resolve_model_path(model_path)
+        resolved_path = model_manager.resolve_model_path(model_path, backend_type)
     else:
         # Try to find a default model
         available_models = model_manager.list_available_models()
@@ -50,21 +52,27 @@ def transcribe_file(
                 "No models found. Please download a model first using vosk-download-model-1000"
             )
         # Use the first available model as default
-        resolved_path = model_manager.resolve_model_path(available_models[0])
-
-    # Load the model
-    model = vosk.Model(str(resolved_path))
+        resolved_path = model_manager.resolve_model_path(
+            available_models[0], backend_type
+        )
 
     # Get model sample rate
-    model_sample_rate = model_manager.get_model_sample_rate(str(resolved_path))
+    model_sample_rate = model_manager.get_model_sample_rate(
+        str(resolved_path), backend_type
+    )
 
-    # Initialize Vosk recognizer
-    rec = vosk.KaldiRecognizer(model, model_sample_rate)
+    # Create recognizer with backend factory
+    from vosk_core.backend_factory import create_backend
+
+    recognizer = create_backend(
+        backend_type=backend_type,
+        model_path=str(resolved_path),
+        sample_rate=model_sample_rate,
+    )
 
     # Read and transcribe the audio file
     print(f"Transcribing: {audio_file}", file=sys.stderr)
 
-    import json
     import wave
 
     import numpy as np
@@ -138,14 +146,14 @@ def transcribe_file(
         # Process audio through pipeline (resampling if needed)
         processed_audio = audio_processor._process_mono_audio_chunk(mono_chunk)
 
-        # Send to Vosk
-        if rec.AcceptWaveform(bytes(processed_audio)):
-            result = json.loads(rec.Result())
-            transcription += result.get("text", "") + " "
+        # Send to recognizer
+        if recognizer.accept_waveform(bytes(processed_audio)):
+            result = recognizer.get_result()
+            transcription += result.text + " "
 
     # Get final result
-    result = json.loads(rec.FinalResult())
-    transcription += result.get("text", "")
+    result = recognizer.get_final_result()
+    transcription += result.text
 
     wf.close()
 
@@ -188,7 +196,15 @@ Supported formats:
     parser.add_argument(
         "--model",
         "-m",
-        help="Path to the Vosk model directory (optional, uses default if not specified)",
+        help="Path to the model directory (optional, uses default if not specified)",
+    )
+
+    parser.add_argument(
+        "--backend",
+        "-b",
+        choices=["vosk", "faster-whisper", "whisper"],
+        default="vosk",
+        help="Recognition backend to use (default: vosk)",
     )
 
     parser.add_argument(
@@ -200,7 +216,7 @@ Supported formats:
     args = parser.parse_args()
 
     try:
-        transcribe_file(args.audio_file, args.model, args.output)
+        transcribe_file(args.audio_file, args.model, args.output, args.backend)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)

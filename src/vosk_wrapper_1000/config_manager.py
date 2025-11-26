@@ -49,13 +49,62 @@ class ModelConfig:
 
 
 @dataclass
+class BackendConfig:
+    """Recognition backend configuration."""
+
+    type: str = "vosk"  # vosk, faster-whisper, whisper
+
+
+@dataclass
 class RecognitionConfig:
-    """Recognition configuration settings."""
+    """Recognition configuration settings (legacy, maps to VoskOptions)."""
 
     words: bool = False
     partial_words: bool = False
     grammar: str | None = None
     max_alternatives: int = 1
+
+
+@dataclass
+class VoskOptions:
+    """Vosk-specific recognition options."""
+
+    words: bool = False
+    partial_words: bool = False
+    grammar: str | None = None
+    max_alternatives: int = 1
+
+
+@dataclass
+class FasterWhisperOptions:
+    """FasterWhisper-specific recognition options."""
+
+    device: str = "cpu"  # cpu, cuda, auto
+    compute_type: str = "int8"  # int8, int16, float16, float32
+    beam_size: int = 5
+    language: str | None = None  # auto-detect if None
+    vad_filter: bool = True
+    best_of: int = 5  # Number of candidates for beam search
+    patience: float = 1.0  # Beam search patience
+    length_penalty: float = 1.0  # Length penalty
+    repetition_penalty: float = 1.0  # Repetition penalty
+    no_repeat_ngram_size: int = 0  # Prevent n-gram repetition
+
+
+@dataclass
+class WhisperOptions:
+    """OpenAI Whisper-specific recognition options."""
+
+    device: str = "cpu"  # cpu, cuda
+    language: str | None = None  # auto-detect if None
+    temperature: float = 0.0  # Sampling temperature
+    fp16: bool = False  # Use FP16 if GPU available
+    best_of: int = 5  # Number of candidates for beam search
+    beam_size: int = 5  # Beam size for beam search
+    patience: float = 1.0  # Beam search patience
+    length_penalty: float = 1.0  # Length penalty
+    suppress_tokens: str = "-1"  # Tokens to suppress
+    initial_prompt: str | None = None  # Initial prompt for context
 
 
 @dataclass
@@ -127,7 +176,13 @@ class Config:
 
     audio: AudioConfig = field(default_factory=AudioConfig)
     model: ModelConfig = field(default_factory=ModelConfig)
+    backend: BackendConfig = field(default_factory=BackendConfig)
     recognition: RecognitionConfig = field(default_factory=RecognitionConfig)
+    vosk_options: VoskOptions = field(default_factory=VoskOptions)
+    faster_whisper_options: FasterWhisperOptions = field(
+        default_factory=FasterWhisperOptions
+    )
+    whisper_options: WhisperOptions = field(default_factory=WhisperOptions)
     hooks: HooksConfig = field(default_factory=HooksConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     performance: PerformanceConfig = field(default_factory=PerformanceConfig)
@@ -228,10 +283,20 @@ class ConfigManager:
 
     def _create_config_from_dict(self, data: dict[str, Any]) -> Config:
         """Create Config object from dictionary data."""
+        # For backward compatibility: if vosk_options not specified,
+        # use recognition config values
+        vosk_opts = data.get("vosk_options", data.get("recognition", {}))
+
         return Config(
             audio=AudioConfig(**data.get("audio", {})),
             model=ModelConfig(**data.get("model", {})),
+            backend=BackendConfig(**data.get("backend", {})),
             recognition=RecognitionConfig(**data.get("recognition", {})),
+            vosk_options=VoskOptions(**vosk_opts),
+            faster_whisper_options=FasterWhisperOptions(
+                **data.get("faster_whisper_options", {})
+            ),
+            whisper_options=WhisperOptions(**data.get("whisper_options", {})),
             hooks=HooksConfig(**data.get("hooks", {})),
             logging=LoggingConfig(**data.get("logging", {})),
             performance=PerformanceConfig(**data.get("performance", {})),
@@ -260,6 +325,11 @@ class ConfigManager:
         if (model_name := os.getenv("VOSK_MODEL_NAME")) is not None:
             config.model.default_name = model_name
             print(f"🔧 Environment override: VOSK_MODEL_NAME={model_name}")
+
+        # Backend overrides
+        if (backend_type := os.getenv("VOSK_BACKEND")) is not None:
+            config.backend.type = backend_type
+            print(f"🔧 Environment override: VOSK_BACKEND={backend_type}")
 
         # Recognition overrides
         if (words := os.getenv("VOSK_WORDS")) is not None:
@@ -346,11 +416,44 @@ class ConfigManager:
                 "default_name": config.model.default_name,
                 "auto_download": config.model.auto_download,
             },
+            "backend": {
+                "type": config.backend.type,
+            },
             "recognition": {
                 "words": config.recognition.words,
                 "partial_words": config.recognition.partial_words,
                 "grammar": config.recognition.grammar,
                 "max_alternatives": config.recognition.max_alternatives,
+            },
+            "vosk_options": {
+                "words": config.vosk_options.words,
+                "partial_words": config.vosk_options.partial_words,
+                "grammar": config.vosk_options.grammar,
+                "max_alternatives": config.vosk_options.max_alternatives,
+            },
+            "faster_whisper_options": {
+                "device": config.faster_whisper_options.device,
+                "compute_type": config.faster_whisper_options.compute_type,
+                "beam_size": config.faster_whisper_options.beam_size,
+                "language": config.faster_whisper_options.language,
+                "vad_filter": config.faster_whisper_options.vad_filter,
+                "best_of": config.faster_whisper_options.best_of,
+                "patience": config.faster_whisper_options.patience,
+                "length_penalty": config.faster_whisper_options.length_penalty,
+                "repetition_penalty": config.faster_whisper_options.repetition_penalty,
+                "no_repeat_ngram_size": config.faster_whisper_options.no_repeat_ngram_size,
+            },
+            "whisper_options": {
+                "device": config.whisper_options.device,
+                "language": config.whisper_options.language,
+                "temperature": config.whisper_options.temperature,
+                "fp16": config.whisper_options.fp16,
+                "best_of": config.whisper_options.best_of,
+                "beam_size": config.whisper_options.beam_size,
+                "patience": config.whisper_options.patience,
+                "length_penalty": config.whisper_options.length_penalty,
+                "suppress_tokens": config.whisper_options.suppress_tokens,
+                "initial_prompt": config.whisper_options.initial_prompt,
             },
             "hooks": {
                 "enabled": config.hooks.enabled,
