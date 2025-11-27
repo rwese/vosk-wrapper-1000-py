@@ -53,7 +53,9 @@ def transcribe_file(
         # For Vosk, resolve the model path
         if model_path:
             # Resolve the provided model path
-            resolved_path = model_manager.resolve_model_path(model_path, backend_type)
+            resolved_path = str(
+                model_manager.resolve_model_path(model_path, backend_type)
+            )
         else:
             # Try to find a default model
             available_models = model_manager.list_available_models()
@@ -62,8 +64,8 @@ def transcribe_file(
                     "No models found. Please download a model first using vosk-download-model-1000"
                 )
             # Use the first available model as default
-            resolved_path = model_manager.resolve_model_path(
-                available_models[0], backend_type
+            resolved_path = str(
+                model_manager.resolve_model_path(available_models[0], backend_type)
             )
 
     # Get model sample rate

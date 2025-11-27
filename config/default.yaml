@@ -1,3 +1,4 @@
+---
 # Vosk Simple Configuration File
 # This file contains default settings for the vosk-simple application
 
@@ -20,6 +21,11 @@ audio:
 
   # Enable noise reduction
   noise_reduction: true
+
+  # Passthrough mode: bypass VAD and process all audio continuously
+  # When enabled, all audio between start/stop is sent to STT without
+  # silence gating
+  passthrough_mode: false
 
 # Model Settings
 model:

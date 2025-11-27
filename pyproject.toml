@@ -28,8 +28,6 @@ dependencies = [
 vosk-wrapper-1000 = "vosk_wrapper_1000.main:main"
 vosk-download-model-1000 = "vosk_core.download_model:main"
 vosk-transcribe-file = "vosk_transcribe.main:main"
-vosk-settings-tui = "vosk_wrapper_1000.settings_tui:main"
-vosk-audio-monitor = "vosk_wrapper_1000.audio_monitor:main"
 
 [tool.hatch.build.targets.wheel]
 only-include = [
@@ -62,6 +60,8 @@ dev = [
     "types-PyYAML>=6.0.0",
     "types-requests>=2.31.0",
     "pytest-xdist>=3.6.1",
+    "types-tqdm>=4.67.0.20250809",
+    "scipy-stubs>=1.16.3.1",
 ]
 
 [tool.pytest.ini_options]

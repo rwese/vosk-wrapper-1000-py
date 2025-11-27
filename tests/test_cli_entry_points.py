@@ -83,35 +83,36 @@ class TestCLIEntryPoints(unittest.TestCase):
         self.assertEqual(result.returncode, 0, f"Command failed: {result.stderr}")
         self.assertIn("Transcribe audio files", result.stdout)
 
-    def test_vosk_settings_tui_import(self):
-        """Test that vosk-settings-tui entry point can be imported."""
-        result = subprocess.run(
-            [sys.executable, "-c", "from vosk_wrapper_1000.settings_tui import main"],
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(
-            result.returncode,
-            0,
-            f"Failed to import vosk_wrapper_1000.settings_tui: {result.stderr}",
-        )
+    # Removed: settings_tui and audio_monitor modules no longer exist
+    # def test_vosk_settings_tui_import(self):
+    #     """Test that vosk-settings-tui entry point can be imported."""
+    #     result = subprocess.run(
+    #         [sys.executable, "-c", "from vosk_wrapper_1000.settings_tui import main"],
+    #         capture_output=True,
+    #         text=True,
+    #     )
+    #     self.assertEqual(
+    #         result.returncode,
+    #         0,
+    #         f"Failed to import vosk_wrapper_1000.settings_tui: {result.stderr}",
+    #     )
 
-    def test_vosk_audio_monitor_import(self):
-        """Test that vosk-audio-monitor entry point can be imported."""
-        result = subprocess.run(
-            [
-                sys.executable,
-                "-c",
-                "from vosk_wrapper_1000.audio_monitor import main",
-            ],
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(
-            result.returncode,
-            0,
-            f"Failed to import vosk_wrapper_1000.audio_monitor: {result.stderr}",
-        )
+    # def test_vosk_audio_monitor_import(self):
+    #     """Test that vosk-audio-monitor entry point can be imported."""
+    #     result = subprocess.run(
+    #         [
+    #             sys.executable,
+    #             "-c",
+    #             "from vosk_wrapper_1000.audio_monitor import main",
+    #         ],
+    #         capture_output=True,
+    #         text=True,
+    #     )
+    #     self.assertEqual(
+    #         result.returncode,
+    #         0,
+    #         f"Failed to import vosk_wrapper_1000.audio_monitor: {result.stderr}",
+    #     )
 
     def test_all_entry_points_in_package(self):
         """Test that all entry points defined in pyproject.toml can be imported."""
@@ -120,8 +121,6 @@ class TestCLIEntryPoints(unittest.TestCase):
             "vosk-wrapper-1000": "vosk_wrapper_1000.main:main",
             "vosk-download-model-1000": "vosk_core.download_model:main",
             "vosk-transcribe-file": "vosk_transcribe.main:main",
-            "vosk-settings-tui": "vosk_wrapper_1000.settings_tui:main",
-            "vosk-audio-monitor": "vosk_wrapper_1000.audio_monitor:main",
         }
 
         for cmd_name, module_path in entry_points.items():

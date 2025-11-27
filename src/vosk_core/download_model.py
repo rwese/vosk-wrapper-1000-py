@@ -210,7 +210,7 @@ def list_whisper_models(output_dir, installed_only=False):
 def download_faster_whisper_model(model_name, output_dir):
     """Download a FasterWhisper model."""
     try:
-        from faster_whisper import WhisperModel
+        from faster_whisper import WhisperModel  # type: ignore[import-untyped]
     except ImportError:
         print("Error: faster-whisper is not installed.")
         print("Install it with: uv sync --extra faster-whisper")
@@ -264,7 +264,7 @@ def download_faster_whisper_model(model_name, output_dir):
 def download_whisper_model(model_name, output_dir):
     """Download a Whisper model."""
     try:
-        import whisper
+        import whisper  # type: ignore[import-untyped]
     except ImportError:
         print("Error: openai-whisper is not installed.")
         print("Install it with: uv sync --extra whisper")

@@ -23,6 +23,7 @@ class AudioProcessor:
         pre_roll_duration: float = 0.5,
         vad_hysteresis_chunks: int = 10,
         noise_reduction_min_rms_ratio: float = 0.5,
+        passthrough_mode: bool = False,
     ):
         self.device_rate = device_rate
         self.model_rate = model_rate
@@ -35,6 +36,7 @@ class AudioProcessor:
         self.pre_roll_duration = pre_roll_duration
         self.vad_hysteresis_chunks = vad_hysteresis_chunks
         self.noise_reduction_min_rms_ratio = noise_reduction_min_rms_ratio
+        self.passthrough_mode = passthrough_mode
         self.soxr_resampler: soxr.ResampleStream | None = None
 
         # Ring buffer for pre-roll audio (stores processed chunks before speech detection)
@@ -305,6 +307,30 @@ class AudioProcessor:
 
         return buffered_audio  # type: ignore
 
+    def process_passthrough(self, audio_data: np.ndarray) -> list[np.ndarray]:
+        """Process audio in passthrough mode - bypass VAD and process all audio.
+
+        In passthrough mode, all audio is processed and sent to the recognizer
+        without any silence detection or gating. This allows the entire audio
+        stream between start/stop to be transcribed, including silence periods.
+
+        Args:
+            audio_data: Raw audio data as int16 numpy array (mono)
+
+        Returns:
+            List containing a single processed audio chunk (or empty if no data)
+        """
+        # Audio is already mono
+        mono_audio = audio_data
+
+        # Process the audio (normalization, noise reduction, resampling)
+        processed_audio = self._process_mono_audio_chunk(mono_audio)
+
+        # Always return the processed audio, regardless of content
+        if len(processed_audio) > 0:
+            return [processed_audio]
+        return []
+
     def process_with_vad(self, audio_data: np.ndarray) -> list[np.ndarray]:
         """Process audio chunk with Voice Activity Detection and pre-roll buffering.
 
@@ -320,6 +346,10 @@ class AudioProcessor:
             - Pre-roll audio + current chunk if speech just started
             - Current chunk if continuing speech
         """
+        # If passthrough mode is enabled, bypass VAD entirely
+        if self.passthrough_mode:
+            return self.process_passthrough(audio_data)
+
         # Audio is already mono
         mono_audio = audio_data
 

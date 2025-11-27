@@ -29,7 +29,7 @@ class FasterWhisperBackend(RecognitionBackend):
                 - language (str): Language code or None for auto-detect
                 - vad_filter (bool): Enable VAD filtering
         """
-        from faster_whisper import WhisperModel
+        from faster_whisper import WhisperModel  # type: ignore[import-untyped]
 
         self.model_path = model_path
         self.sample_rate = sample_rate

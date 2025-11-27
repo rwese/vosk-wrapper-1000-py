@@ -76,17 +76,13 @@ def set_vosk_log_level(log_level: str):
     """
     import vosk
 
-    # Map our log levels to Vosk log levels
+    # Silence Vosk by default, only show in DEBUG mode
     # Vosk levels: -1 = silent, 0 = errors only, 1 = warnings, 2 = info (verbose)
-    vosk_level_map = {
-        "DEBUG": 2,  # Show all Vosk output including info
-        "INFO": 2,  # Show all Vosk output including info
-        "WARNING": 0,  # Show only Vosk errors
-        "ERROR": 0,  # Show only Vosk errors
-        "CRITICAL": -1,  # Silence Vosk completely
-    }
+    if log_level.upper() == "DEBUG":
+        vosk_level = 2  # Show all Vosk output in debug mode
+    else:
+        vosk_level = -1  # Silence Vosk completely otherwise
 
-    vosk_level = vosk_level_map.get(log_level.upper(), 0)
     vosk.SetLogLevel(vosk_level)
     logger.debug(f"Vosk log level set to {vosk_level} (app level: {log_level})")
 
@@ -441,6 +437,7 @@ def run_service(args):
             args, "noise_reduction_min_rms_ratio", 0.5
         ),
         pre_roll_duration=getattr(args, "pre_roll_duration", 1.0),
+        passthrough_mode=getattr(args, "passthrough_mode", False),
     )
 
     audio_recorder = AudioRecorder(
@@ -469,7 +466,13 @@ def run_service(args):
         sys.exit(1)
 
     # Resolve device and get info
-    device_info = device_manager.get_device_info(args.device)
+    # If no device specified via CLI, check config for default_device
+    device_to_use = args.device
+    if not device_to_use and config.audio.default_device:
+        device_to_use = config.audio.default_device
+        logger.info(f"Using default device from config: {device_to_use}")
+
+    device_info = device_manager.get_device_info(device_to_use)
     if device_info is None:
         device_id = None
         # Get default device sample rate
@@ -539,8 +542,8 @@ def run_service(args):
     print(f"Instance '{instance_name}' starting...", file=sys.stderr)
 
     # Load Model and Create Recognizer
-    print(f"Loading model from {args.model}...", file=sys.stderr)
-    print(f"Using backend: {backend_type}", file=sys.stderr)
+    logger.debug(f"Loading model from {args.model}...")
+    logger.debug(f"Using backend: {backend_type}")
 
     # Set Vosk log level if using Vosk backend
     if backend_type == "vosk":
@@ -634,16 +637,18 @@ def run_service(args):
         logger.info("Service ready")
 
     # Initialize WebRTC server now that audio_processor is ready
+    webrtc_audio_queue: queue.Queue | None = None
     if webrtc_config is not None:
         try:
             # Placeholder for audio queue to be used by WebRTC callback
-            webrtc_audio_queue: queue.Queue = queue.Queue()
+            webrtc_audio_queue = queue.Queue()
 
             # Create WebRTC audio callback that integrates with existing audio processing
             def webrtc_audio_callback(audio_bytes, sample_rate, channels, peer_id):
                 """Handle audio from WebRTC streams."""
                 try:
                     # Queue audio for processing (will be handled in main loop)
+                    assert webrtc_audio_queue is not None
                     webrtc_audio_queue.put_nowait(
                         (audio_bytes, sample_rate, channels, peer_id)
                     )
@@ -693,8 +698,14 @@ def run_service(args):
                 if (
                     callback_counter[0] % 100 == 0
                 ):  # Every ~100 callbacks (about 2 seconds at 1024 blocksize)
+                    # Calculate RMS for debugging
+                    import numpy as np
+
+                    audio_float = indata.astype(np.float32)
+                    audio_float = audio_float - np.mean(audio_float)
+                    rms = np.sqrt(np.mean(audio_float**2))
                     print(
-                        f"DEBUG: Processing audio while listening - callback #{callback_counter[0]}, frames: {frames}, audio max: {indata.max():.6f}",
+                        f"DEBUG: Processing audio while listening - callback #{callback_counter[0]}, frames: {frames}, audio max: {indata.max():.6f}, RMS: {rms:.2f}, threshold: {audio_processor.silence_threshold}",
                         file=sys.stderr,
                     )
 
@@ -702,8 +713,23 @@ def run_service(args):
                 # Returns empty list if silence, or list of chunks to process if speech detected
                 audio_chunks = audio_processor.process_with_vad(indata)
 
-                # Check if speech just ended
-                if audio_processor.check_and_reset_speech_end():
+                # Debug: Log when audio chunks are actually produced
+                if callback_counter[0] % 100 == 0 and len(audio_chunks) > 0:
+                    print(
+                        f"DEBUG: ✓ Audio chunks produced: {len(audio_chunks)} chunks, total samples: {sum(len(c) for c in audio_chunks)}",
+                        file=sys.stderr,
+                    )
+                elif callback_counter[0] % 100 == 0:
+                    print(
+                        "DEBUG: ✗ No audio chunks (silence detected)", file=sys.stderr
+                    )
+
+                # Check if speech just ended (only in non-passthrough mode)
+                # In passthrough mode, we never want to finalize results mid-stream
+                if (
+                    not audio_processor.passthrough_mode
+                    and audio_processor.check_and_reset_speech_end()
+                ):
                     # Put special marker to indicate speech end
                     try:
                         audio_queue.put_nowait(SPEECH_END_MARKER)
@@ -758,6 +784,7 @@ def run_service(args):
                     audio_processor.pre_roll_duration = (
                         new_config.audio.pre_roll_duration
                     )
+                    audio_processor.passthrough_mode = new_config.audio.passthrough_mode
 
                     # Update logging level
                     import logging
@@ -829,8 +856,17 @@ def run_service(args):
                 try:
                     import sounddevice as sd  # Import here, in child process after fork
 
+                    # Get device info for logging
+                    device_info_str = "system default"
+                    if device_id is not None:
+                        try:
+                            dev_info = sd.query_devices(device_id, kind="input")
+                            device_info_str = f"{dev_info['name']} (ID: {device_id})"
+                        except Exception:
+                            device_info_str = f"ID {device_id}"
+
                     print(
-                        f"DEBUG: About to create stream - device_id={device_id}, samplerate={audio_processor.device_rate}",
+                        f"DEBUG: About to create stream - device: {device_info_str}, samplerate={audio_processor.device_rate}",
                         file=sys.stderr,
                     )
 
@@ -853,6 +889,10 @@ def run_service(args):
 
                     print(
                         f"DEBUG: Stream created successfully - {stream}",
+                        file=sys.stderr,
+                    )
+                    print(
+                        f"🎤 Using audio device: {device_info_str}",
                         file=sys.stderr,
                     )
 
@@ -1199,9 +1239,12 @@ def cmd_list(args):
 
 def cmd_send(args):
     """Send IPC command to a running instance."""
-    from .ipc_client import CommandError
+    from .ipc_client import (
+        CommandError,
+        IPCClient,
+        get_socket_path,
+    )
     from .ipc_client import ConnectionError as IPCConnectionError
-    from .ipc_client import IPCClient, get_socket_path
 
     socket_path = get_socket_path(args.name)
 
@@ -1509,7 +1552,7 @@ def cmd_transcribe_file(args):
     # Get model sample rate
     model_sample_rate = model_manager.get_model_sample_rate(args.model)
 
-    print(f"Loading model from {args.model}...", file=sys.stderr)
+    logger.debug(f"Loading model from {args.model}...")
     import vosk
 
     model = vosk.Model(str(args.model))
@@ -1558,6 +1601,7 @@ def cmd_transcribe_file(args):
                     args, "noise_reduction_min_rms_ratio", 0.5
                 ),
                 pre_roll_duration=getattr(args, "pre_roll_duration", 1.0),
+                passthrough_mode=getattr(args, "passthrough_mode", False),
             )
 
             # Create recognizer
@@ -1845,6 +1889,11 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
         help="Target RMS level for normalization (0.0-1.0, default: 0.3)",
     )
     daemon_parser.add_argument(
+        "--passthrough-mode",
+        action="store_true",
+        help="Enable passthrough mode - bypass VAD and process all audio continuously (no silence gating)",
+    )
+    daemon_parser.add_argument(
         "--record-audio",
         type=str,
         help="Record processed audio sent to Vosk to WAV file for review",
@@ -2042,6 +2091,11 @@ For more information, visit: https://github.com/rwese/vosk-wrapper-1000-py
         type=float,
         default=0.3,
         help="Target RMS level for normalization (0.0-1.0, default: 0.3)",
+    )
+    transcribe_parser.add_argument(
+        "--passthrough-mode",
+        action="store_true",
+        help="Enable passthrough mode - bypass VAD and process all audio continuously (no silence gating)",
     )
     transcribe_parser.add_argument(
         "--record-audio",

@@ -1,3 +1,4 @@
+---
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
@@ -18,7 +19,7 @@ repos:
     rev: v1.35.1
     hooks:
       - id: yamllint
-   # - repo: https://github.com/igorshubovych/markdownlint-cli
+  # - repo: https://github.com/igorshubovych/markdownlint-cli
    #   rev: v0.42.0
    #   hooks:
    #     - id: markdownlint
@@ -38,11 +39,6 @@ repos:
         types: [python]
         require_serial: true
         exclude: ^(hooks/|scripts/|examples/|tests/)
-      - id: isort
-        name: isort
-        entry: uv run isort --profile black
-        language: system
-        types: [python]
       - id: mypy
         name: mypy
         entry: bash -c 'uv run mypy src/'

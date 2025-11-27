@@ -37,6 +37,9 @@ class AudioConfig:
     vad_hysteresis_chunks: int = 10
     pre_roll_duration: float = 0.5
     noise_reduction_min_rms_ratio: float = 0.5
+    passthrough_mode: bool = (
+        False  # If True, bypass VAD and process all audio continuously
+    )
 
 
 @dataclass
@@ -410,6 +413,7 @@ class ConfigManager:
                 "vad_hysteresis_chunks": config.audio.vad_hysteresis_chunks,
                 "pre_roll_duration": config.audio.pre_roll_duration,
                 "noise_reduction_min_rms_ratio": config.audio.noise_reduction_min_rms_ratio,
+                "passthrough_mode": config.audio.passthrough_mode,
             },
             "model": {
                 "path": config.model.path,

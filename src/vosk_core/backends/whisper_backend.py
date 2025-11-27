@@ -30,7 +30,7 @@ class WhisperBackend(RecognitionBackend):
                 - temperature (float): Sampling temperature
                 - fp16 (bool): Use FP16 if GPU available
         """
-        import whisper
+        import whisper  # type: ignore[import-untyped]
 
         self.model_path = model_path
         self.sample_rate = sample_rate
